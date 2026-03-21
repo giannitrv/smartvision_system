@@ -1,6 +1,8 @@
 #include "smartvision.h"
+#include "broadcaster.h"
 #include <gst/gst.h>
 #include <gst/rtsp-server/rtsp-server.h>
+#include <glib-unix.h>
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 static constexpr int STREAM_WIDTH = 1280;
@@ -67,17 +69,28 @@ static void media_configure(GstRTSPMediaFactory *factory, GstRTSPMedia *media,
   gst_object_unref(element);
 }
 
+static gboolean on_interrupt_signal(gpointer user_data) {
+  GMainLoop *loop = static_cast<GMainLoop *>(user_data);
+  g_print("\nInterrupt signal received. Quitting main loop...\n");
+  g_main_loop_quit(loop);
+  return G_SOURCE_REMOVE;
+}
+
 int main(int argc, char *argv[]) {
   GMainLoop *loop;
   GstRTSPServer *server;
   GstRTSPMountPoints *mounts;
   GstRTSPMediaFactory *factory;
 
+  Broadcaster broadcaster;
+
   smartvision.start();
+  broadcaster.run();
 
   gst_init(&argc, &argv);
 
   loop = g_main_loop_new(NULL, FALSE);
+  g_unix_signal_add(SIGINT, on_interrupt_signal, loop);
 
   /* create a server instance */
   server = gst_rtsp_server_new();
@@ -103,8 +116,8 @@ int main(int argc, char *argv[]) {
   g_signal_connect(factory, "media-configure", (GCallback)media_configure,
                    NULL);
 
-  /* attach the test factory to the /stream url */
-  gst_rtsp_mount_points_add_factory(mounts, "/stream", factory);
+  /* attach the test factory to the /video url */
+  gst_rtsp_mount_points_add_factory(mounts, "/video", factory);
 
   /* don't need the ref to the mounts anymore */
   g_object_unref(mounts);
@@ -113,9 +126,12 @@ int main(int argc, char *argv[]) {
   gst_rtsp_server_attach(server, NULL);
 
   /* start serving */
-  g_print("Stream ready at rtsp://[IP_ADDRESS]:8554/stream\n");
+  g_print("Stream ready at rtsp://[IP_ADDRESS]:8554/video\n");
   g_main_loop_run(loop);
 
+  g_print("Stoppping application\n");
+
+  broadcaster.stop();
   smartvision.stop();
 
   g_main_loop_unref(loop);

@@ -1,17 +1,17 @@
 #include "smartvision.h"
 #include "ai.h"
-#include <cstring>
 
-SmartVision::SmartVision(int width, int height, int fps, const char *model_path)
+SmartVision::SmartVision(int width, int height, int fps, const char *modelPath)
     : width(width), height(height), fps(fps) {
 
+    zoomFactor = 1.0;
     fpsCounter = 0;
     // Init text variables
-    text_pos = cv::Point(10, 30);
-    text_color = cv::Scalar(0, 255, 0);
-    text_font = cv::FONT_HERSHEY_SIMPLEX;
-    text_thickness = 1;
-    text_size = 1;
+    textPos = cv::Point(10, 30);
+    textColor = cv::Scalar(0, 255, 0);
+    textFont = cv::FONT_HERSHEY_SIMPLEX;
+    textThickness = 1;
+    textSize = 1;
     // Open camera. CAP_V4L2 + MJPG fourcc = same path as the old v4l2src
     // pipeline, but OpenCV transparently decodes the JPEG before handing us a BGR
     // frame.
@@ -26,7 +26,7 @@ SmartVision::SmartVision(int width, int height, int fps, const char *model_path)
         return;
     }
     // Init ai model
-    ai = new AI(model_path);
+    ai = new AI(modelPath);
     std::cout << "[SmartVision] Camera opened: "
               << cap.get(cv::CAP_PROP_FRAME_WIDTH) << "x"
               << cap.get(cv::CAP_PROP_FRAME_HEIGHT) << " @ "
@@ -36,38 +36,39 @@ SmartVision::SmartVision(int width, int height, int fps, const char *model_path)
 SmartVision::~SmartVision() {
     stop();
     delete ai;
+    std::cout << "[SmartVision] SmartVision stopped.\n";
 }
 
 cv::Mat SmartVision::getLatestFrame() {
-    std::lock_guard<std::mutex> lock(frame_mutex);
-    return latest_frame.clone();
+    std::lock_guard<std::mutex> lock(frameMutex);
+    return latestFrame.clone();
 }
 
 void SmartVision::start() {
     running = true;
     fpsStart = std::chrono::duration_cast<std::chrono::milliseconds>(
       std::chrono::high_resolution_clock::now().time_since_epoch());
-    capture_thread = std::thread(&SmartVision::captureLoop, this);
+    captureThread = std::thread(&SmartVision::captureLoop, this);
 }
 
 void SmartVision::stop() {
     running = false;
-    if (capture_thread.joinable()) {
-    capture_thread.join();
+    if (captureThread.joinable()) {
+        captureThread.join();
   }
 }
 
 cv::Mat SmartVision::process(cv::Mat &frame) {
     // Default: passthrough. Override in a subclass to apply detection, drawing,
     // etc.
-    std::string text = "FPS: " + std::to_string(currentFps);
-    cv::putText(frame, text, text_pos, text_font, text_size, text_color,
-                text_thickness);
+    char text[100];
+    sprintf(text, "Zoom : %.1f FPS: %d", zoomFactor, currentFps);
+    cv::putText(frame, text, textPos, textFont, textSize, textColor, textThickness);
     return frame;
 }
 
 void SmartVision::captureLoop() {
-    cv::Mat raw_frame;
+    cv::Mat rawFrame;
     std::chrono::milliseconds currTime;
 
     while (running) {
@@ -79,19 +80,35 @@ void SmartVision::captureLoop() {
             fpsStart = currTime;
             fpsCounter = 0;
         }
-        cap >> raw_frame;
-        if (raw_frame.empty()) {
+        cap >> rawFrame;
+        if (rawFrame.empty()) {
             std::cerr << "[SmartVision] WARNING: Empty frame captured, skipping.\n";
             continue;
         }
-        ai->process(raw_frame);
+        rawFrame = applyZoom(rawFrame);
+        ai->process(rawFrame);
         // Let the application process the frame (detection, drawing, etc.)
-        cv::Mat processed = process(raw_frame);
+        cv::Mat processed = process(rawFrame);
         // Update last frame
-        std::lock_guard<std::mutex> lock(frame_mutex);
-        latest_frame = processed.clone();
+        std::lock_guard<std::mutex> lock(frameMutex);
+        latestFrame = processed.clone();
     }
-
     cap.release();
-    std::cout << "[SmartVision] Capture thread stopped.\n";
+}
+
+cv::Mat SmartVision::applyZoom(cv::Mat frame) {
+    cv::Mat zoomedFrame;
+
+    cv::Size originalSize = frame.size();
+    int centerX = originalSize.width / 2;
+    int centerY = originalSize.height / 2;
+    int newWidth = originalSize.width / zoomFactor;
+    int newHeight = originalSize.height / zoomFactor;
+    int x = centerX - newWidth / 2;
+    int y = centerY - newHeight / 2;
+    cv::Rect roi(x, y, newWidth, newHeight);
+    zoomedFrame = frame(roi);
+    cv::resize(zoomedFrame, zoomedFrame, originalSize, 0, 0, cv::INTER_LINEAR);
+
+    return zoomedFrame;
 }

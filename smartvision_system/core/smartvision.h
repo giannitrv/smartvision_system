@@ -9,13 +9,9 @@
 
 class SmartVision {
 public:
-  // appsrc: the GStreamer element that will receive our frames
-  // width, height, fps: must match what OpenCV captures and what the pipeline
-  // expects
-  SmartVision(int width, int height, int fps, const char *model_path);
+  SmartVision(int width, int height, int fps, const char *modelPath);
   ~SmartVision();
   cv::Mat getLatestFrame();
-  // Start/stop the background capture thread
   void start();
   void stop();
 
@@ -26,23 +22,25 @@ protected:
 
 private:
   void captureLoop();
+  cv::Mat applyZoom(cv::Mat frame);
   AI *ai;
-  cv::Mat latest_frame;
-  std::mutex frame_mutex;
+  cv::Mat latestFrame;
+  std::mutex frameMutex;
   cv::VideoCapture cap;
   int width;
   int height;
   int fps;
+  float zoomFactor;
   int currentFps;
   int fpsCounter;
   std::chrono::milliseconds fpsStart;
-  std::thread capture_thread;
+  std::thread captureThread;
   std::atomic<bool> running{false};
-  cv::Point text_pos;
-  cv::Scalar text_color;
-  int text_font;
-  int text_thickness;
-  int text_size;
+  cv::Point textPos;
+  cv::Scalar textColor;
+  int textFont;
+  int textThickness;
+  int textSize;
 };
 
 #endif // SMARTVISION_H

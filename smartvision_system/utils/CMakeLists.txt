@@ -20,11 +20,6 @@ if(DISABLE_RGA AND NOT (TARGET_SOC STREQUAL "rv1106" OR TARGET_SOC STREQUAL "rv1
     add_definitions(-DDISABLE_RGA)
 endif ()
 
-# only RGA on rv1106 and rk3588 support handle
-if (TARGET_SOC STREQUAL "rv1106" OR TARGET_SOC STREQUAL "rk3588")
-    add_definitions(-DLIBRGA_IM2D_HANDLE)
-endif()
-
 add_library(imageutils STATIC
     image_utils.c
 )

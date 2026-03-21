@@ -57,8 +57,8 @@ build_rk3576/
 Thumbs.db
 
 # Project specific
-smartvision_system/model/*.rknn
-smartvision_system/model/*.onnx
-smartvision_system/model/*.weights
-smartvision_system/model/*.bin
-smartvision_system/model/*.pb
+smartvision_system/models/*.rknn
+smartvision_system/models/*.onnx
+smartvision_system/models/*.weights
+smartvision_system/models/*.bin
+smartvision_system/models/*.pb
