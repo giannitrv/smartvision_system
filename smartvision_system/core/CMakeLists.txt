@@ -1,16 +1,16 @@
 # Core component CMakeLists.txt
 
-add_executable(rtsp_server
+add_executable(smartvision
     main.cc
     smartvision.cc
 )
 
 # Set RPATH so the executable can find shared libraries in the 'lib' folder
-set_target_properties(rtsp_server PROPERTIES INSTALL_RPATH "$ORIGIN/lib")
+set_target_properties(smartvision PROPERTIES INSTALL_RPATH "$ORIGIN/lib")
 
-install(TARGETS rtsp_server DESTINATION .)
+install(TARGETS smartvision DESTINATION .)
 
-target_include_directories(rtsp_server PRIVATE
+target_include_directories(smartvision PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${GST_INCLUDE_DIRS}
     ${GST_RTSP_SERVER_INCLUDE_DIRS}
@@ -18,7 +18,7 @@ target_include_directories(rtsp_server PRIVATE
     ${OpenCV_INCLUDE_DIRS}
 )
 
-target_link_libraries(rtsp_server PRIVATE
+target_link_libraries(smartvision PRIVATE
     ai_yolov8
     fileutils
     imagedrawing
@@ -29,7 +29,7 @@ target_link_libraries(rtsp_server PRIVATE
     ${OpenCV_LIBRARIES}
 )
 
-target_compile_options(rtsp_server PRIVATE
+target_compile_options(smartvision PRIVATE
     ${GST_CFLAGS_OTHER}
     ${GST_RTSP_SERVER_CFLAGS_OTHER}
     ${GST_APP_CFLAGS_OTHER}

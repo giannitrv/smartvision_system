@@ -6,7 +6,7 @@
 static constexpr int STREAM_WIDTH = 1280;
 static constexpr int STREAM_HEIGHT = 720;
 static constexpr int STREAM_FPS = 30;
-const char *model_path = "/home/radxa/smartvision/models/yolov8n.rknn";
+const char *model_path = "./models/yolov8n.rknn";
 
 static SmartVision smartvision(STREAM_WIDTH, STREAM_HEIGHT, STREAM_FPS, model_path);
 static uint64_t frame_count_ = 0;

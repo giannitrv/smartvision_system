@@ -37,6 +37,6 @@ docker run --rm \
 
 echo -e "\n========================================================"
 echo "Build finished successfully!"
-echo "The cross-compiled executable is located at: ./${BUILD_DIR}/rtsp_server"
+echo "The cross-compiled executable is located at: ./${BUILD_DIR}/smartvision"
 echo "You can copy this file to your Rockchip board via SCP."
 echo "========================================================"
