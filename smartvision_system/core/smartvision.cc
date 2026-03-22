@@ -1,4 +1,5 @@
 #include "smartvision.h"
+#include "protocol.h"
 #include "ai.h"
 
 SmartVision::SmartVision(int width, int height, int fps, const char *modelPath)
@@ -39,11 +40,6 @@ SmartVision::~SmartVision() {
     std::cout << "[SmartVision] SmartVision stopped.\n";
 }
 
-cv::Mat SmartVision::getLatestFrame() {
-    std::lock_guard<std::mutex> lock(frameMutex);
-    return latestFrame.clone();
-}
-
 void SmartVision::start() {
     running = true;
     fpsStart = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -55,12 +51,31 @@ void SmartVision::stop() {
     running = false;
     if (captureThread.joinable()) {
         captureThread.join();
-  }
+    }
+}
+
+cv::Mat SmartVision::getLatestFrame() {
+    std::lock_guard<std::mutex> lock(frameMutex);
+    return latestFrame.clone();
+}
+
+std::vector<uint8_t> SmartVision::parseCommand(const std::vector<uint8_t> &command) {
+    std::vector<uint8_t> response;
+
+    switch (command[0]) {
+        case SET_COOM_CMD_ID:
+            parseSetZoomCmd(command, &zoomFactor);
+            response = createSetZoomAck(zoomFactor);
+            break;
+        default:
+            response = createUnknownCmdAck(command);
+        break;
+    }
+
+    return response;
 }
 
 cv::Mat SmartVision::process(cv::Mat &frame) {
-    // Default: passthrough. Override in a subclass to apply detection, drawing,
-    // etc.
     char text[100];
     sprintf(text, "Zoom : %.1f FPS: %d", zoomFactor, currentFps);
     cv::putText(frame, text, textPos, textFont, textSize, textColor, textThickness);
