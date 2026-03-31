@@ -15,6 +15,7 @@ install(TARGETS smartvision DESTINATION .)
 
 target_include_directories(smartvision PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/smartvision_system/3rdparty
     ${GST_INCLUDE_DIRS}
     ${GST_RTSP_SERVER_INCLUDE_DIRS}
     ${GST_APP_INCLUDE_DIRS}

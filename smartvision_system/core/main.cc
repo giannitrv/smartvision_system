@@ -4,16 +4,43 @@
 #include <gst/gst.h>
 #include <gst/rtsp-server/rtsp-server.h>
 #include <glib-unix.h>
+#include <nlohmann/json.hpp>
+#include <fstream>
+#include <iostream>
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-static constexpr int STREAM_WIDTH = 1280;
-static constexpr int STREAM_HEIGHT = 720;
-static constexpr int STREAM_FPS = 30;
-const char *model_path = "./models/yolov8n.rknn";
+using json = nlohmann::json;
 
-static SmartVision smartvision(STREAM_WIDTH, STREAM_HEIGHT, STREAM_FPS, model_path);
+struct Config {
+    int width = 1280;
+    int height = 720;
+    int fps = 30;
+    std::string model_path = "./models/yolov8n.rknn";
+};
+
+static Config load_config() {
+    Config cfg;
+    std::ifstream f("config.json");
+    if (f.is_open()) {
+        try {
+            json j = json::parse(f);
+            if (j.contains("width")) cfg.width = j["width"];
+            if (j.contains("height")) cfg.height = j["height"];
+            if (j.contains("fps")) cfg.fps = j["fps"];
+            if (j.contains("model_path")) cfg.model_path = j["model_path"];
+            std::cout << "[Config] Loaded configuration from config.json" << std::endl;
+        } catch (...) {
+            std::cerr << "[Config] Failed to parse config.json, using defaults" << std::endl;
+        }
+    } else {
+        std::cerr << "[Config] Could not open config.json, using defaults" << std::endl;
+    }
+    return cfg;
+}
+
+static Config current_config = load_config();
+static SmartVision smartvision(current_config.width, current_config.height, current_config.fps, current_config.model_path.c_str());
 static uint64_t frame_count_ = 0;
-const GstClockTime frame_duration = GST_SECOND / static_cast<GstClockTime>(STREAM_FPS);
+const GstClockTime frame_duration = GST_SECOND / static_cast<GstClockTime>(current_config.fps);
 
 /* called when we need to give data to appsrc */
 static void need_data(GstElement *appsrc, guint unused) {
@@ -58,9 +85,9 @@ static void media_configure(GstRTSPMediaFactory *factory, GstRTSPMedia *media,
     /* configure the caps of the video */
     g_object_set(G_OBJECT(appsrc), "caps",
                 gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING,
-                                    "BGR", "width", G_TYPE_INT, STREAM_WIDTH,
-                                    "height", G_TYPE_INT, STREAM_HEIGHT,
-                                    "framerate", GST_TYPE_FRACTION, STREAM_FPS,
+                                    "BGR", "width", G_TYPE_INT, current_config.width,
+                                    "height", G_TYPE_INT, current_config.height,
+                                    "framerate", GST_TYPE_FRACTION, current_config.fps,
                                     1, NULL),
                 NULL);
 
