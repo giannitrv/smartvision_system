@@ -1,6 +1,7 @@
 #include "smartvision.h"
 #include "protocol.h"
 #include "ai.h"
+#include "image_utils.h"
 
 SmartVision::SmartVision(int width, int height, int fps, const char *modelPath)
     : width(width), height(height), fps(fps) {
@@ -112,7 +113,9 @@ void SmartVision::captureLoop() {
 }
 
 cv::Mat SmartVision::applyZoom(cv::Mat frame) {
-    cv::Mat zoomedFrame;
+    if (zoomFactor <= 1.01f) {
+        return frame;
+    }
 
     cv::Size originalSize = frame.size();
     int centerX = originalSize.width / 2;
@@ -121,9 +124,32 @@ cv::Mat SmartVision::applyZoom(cv::Mat frame) {
     int newHeight = originalSize.height / zoomFactor;
     int x = centerX - newWidth / 2;
     int y = centerY - newHeight / 2;
-    cv::Rect roi(x, y, newWidth, newHeight);
-    zoomedFrame = frame(roi);
-    cv::resize(zoomedFrame, zoomedFrame, originalSize, 0, 0, cv::INTER_LINEAR);
+
+    image_buffer_t src_img;
+    memset(&src_img, 0, sizeof(image_buffer_t));
+    src_img.width = originalSize.width;
+    src_img.height = originalSize.height;
+    src_img.format = IMAGE_FORMAT_BGR888;
+    src_img.virt_addr = frame.data;
+
+    cv::Mat zoomedFrame(originalSize, CV_8UC3);
+    image_buffer_t dst_img;
+    memset(&dst_img, 0, sizeof(image_buffer_t));
+    dst_img.width = originalSize.width;
+    dst_img.height = originalSize.height;
+    dst_img.format = IMAGE_FORMAT_BGR888;
+    dst_img.virt_addr = zoomedFrame.data;
+
+    image_rect_t src_box = {x, y, x + newWidth - 1, y + newHeight - 1};
+    image_rect_t dst_box = {0, 0, originalSize.width - 1, originalSize.height - 1};
+
+    int ret = convert_image(&src_img, &dst_img, &src_box, &dst_box, 0);
+    if (ret != 0) {
+        std::cerr << "[SmartVision] WARNING: RGA zoom failed, falling back to CPU.\n";
+        cv::Rect roi(x, y, newWidth, newHeight);
+        zoomedFrame = frame(roi);
+        cv::resize(zoomedFrame, zoomedFrame, originalSize, 0, 0, cv::INTER_LINEAR);
+    }
 
     return zoomedFrame;
 }

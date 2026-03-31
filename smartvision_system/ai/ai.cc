@@ -42,10 +42,6 @@ AI::~AI() {
         free(dst_img.virt_addr);
     }
 
-    if (src_image.virt_addr != NULL)
-    {
-        free(src_image.virt_addr);
-    }
 }
 
 void AI::process(cv::Mat &frame) {
@@ -53,23 +49,12 @@ void AI::process(cv::Mat &frame) {
     int bg_color = 114;
     letterbox_t letter_box;
 
-    // Initialize or Update src_image if needed
-    if (src_image.virt_addr == NULL || src_image.width != frame.cols || src_image.height != frame.rows) {
-        if (src_image.virt_addr != NULL) {
-            free(src_image.virt_addr);
-        }
-        
-        src_image.width = frame.cols;
-        src_image.height = frame.rows;
-        src_image.format = IMAGE_FORMAT_RGB888;
-        src_image.size = get_image_size(&src_image);
-        src_image.virt_addr = (unsigned char *)malloc(src_image.size);
-    }
-
-    // Convert OpenCV BGR to RGB and copy to src_image
-    cv::Mat rgb_frame;
-    cv::cvtColor(frame, rgb_frame, cv::COLOR_BGR2RGB);
-    memcpy(src_image.virt_addr, rgb_frame.data, src_image.size);
+    // Wrap the OpenCV BGR frame directly
+    src_image.width = frame.cols;
+    src_image.height = frame.rows;
+    src_image.format = IMAGE_FORMAT_BGR888;
+    src_image.size = get_image_size(&src_image);
+    src_image.virt_addr = frame.data;
 
     // Pre Process
     memset(&letter_box, 0, sizeof(letterbox_t));
@@ -129,12 +114,8 @@ void AI::process(cv::Mat &frame) {
 
         draw_rectangle(&src_image, x1, y1, x2 - x1, y2 - y1, COLOR_GREEN, 1);
 
-        sprintf(text, "%s %.1f%%", coco_cls_to_name(det_result->cls_id), det_result->prop * 100);
+        //sprintf(text, "%s %.1f%%", coco_cls_to_name(det_result->cls_id), det_result->prop * 100);
         //sprintf(text, "%d %.1f%%", det_result->cls_id, det_result->prop * 100);
-        draw_text(&src_image, text, x1, y1 - 20, COLOR_GREEN, 10);
+        //draw_text(&src_image, text, x1, y1 - 20, COLOR_GREEN, 10);
     }
-
-    // Copy back from src_image (drawing modified it) to OpenCV frame
-    cv::Mat rgb_result(src_image.height, src_image.width, CV_8UC3, src_image.virt_addr);
-    cv::cvtColor(rgb_result, frame, cv::COLOR_RGB2BGR);
 }

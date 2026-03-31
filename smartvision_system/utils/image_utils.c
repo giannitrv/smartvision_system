@@ -427,7 +427,7 @@ static int convert_image_cpu(image_buffer_t *src, image_buffer_t *dst, image_rec
 
     int need_release_dst_buffer = 0;
     int reti = 0;
-    if (src->format == IMAGE_FORMAT_RGB888) {
+    if (src->format == IMAGE_FORMAT_RGB888 || src->format == IMAGE_FORMAT_BGR888) {
         reti = crop_and_scale_image_c(3, src->virt_addr, src->width, src->height,
             src_box_x, src_box_y, src_box_w, src_box_h,
             dst->virt_addr, dst->width, dst->height,
@@ -463,6 +463,8 @@ static int get_rga_fmt(image_format_t fmt) {
     {
     case IMAGE_FORMAT_RGB888:
         return RK_FORMAT_RGB_888;
+    case IMAGE_FORMAT_BGR888:
+        return RK_FORMAT_BGR_888;
     case IMAGE_FORMAT_RGBA8888:
         return RK_FORMAT_RGBA_8888;
     case IMAGE_FORMAT_YUV420SP_NV12:
@@ -484,6 +486,7 @@ int get_image_size(image_buffer_t* image)
     case IMAGE_FORMAT_GRAY8:
         return image->width * image->height;
     case IMAGE_FORMAT_RGB888:
+    case IMAGE_FORMAT_BGR888:
         return image->width * image->height * 3;    
     case IMAGE_FORMAT_RGBA8888:
         return image->width * image->height * 4;

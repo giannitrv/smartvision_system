@@ -36,6 +36,11 @@ static unsigned int convert_color(unsigned int src_color, image_format_t dst_fmt
         p_dst_color[1] = g;
         p_dst_color[2] = b;
         break;
+    case IMAGE_FORMAT_BGR888:
+        p_dst_color[0] = b;
+        p_dst_color[1] = g;
+        p_dst_color[2] = r;
+        break;
     case IMAGE_FORMAT_RGBA8888:
         p_dst_color[0] = r;
         p_dst_color[1] = g;
@@ -1487,6 +1492,7 @@ void draw_rectangle(image_buffer_t* image, int rx, int ry, int rw, int rh, unsig
     switch (format)
     {
     case IMAGE_FORMAT_RGB888:
+    case IMAGE_FORMAT_BGR888:
         draw_rectangle_c3(pixels, w, h, rx, ry, rw, rh, draw_color, thickness);
         break;
     case IMAGE_FORMAT_RGBA8888:
@@ -1515,6 +1521,7 @@ void draw_line(image_buffer_t* image, int x0, int y0, int x1, int y1, unsigned i
     switch (format)
     {
     case IMAGE_FORMAT_RGB888:
+    case IMAGE_FORMAT_BGR888:
         draw_line_c3(pixels, w, h, x0, y0, x1, y1, draw_color, thickness);
         break;
     case IMAGE_FORMAT_RGBA8888:
@@ -1573,6 +1580,7 @@ void draw_text(image_buffer_t* image, const char* text, int x, int y, unsigned i
     switch (format)
     {
     case IMAGE_FORMAT_RGB888:
+    case IMAGE_FORMAT_BGR888:
         draw_text_c3(pixels, w, h, text, x, y, fontsize, draw_color);
         break;
     case IMAGE_FORMAT_RGBA8888:
@@ -1600,6 +1608,7 @@ void draw_circle(image_buffer_t* image, int cx, int cy, int radius, unsigned int
     switch (format)
     {
     case IMAGE_FORMAT_RGB888:
+    case IMAGE_FORMAT_BGR888:
         draw_circle_c3(pixels, w, h, cx, cy, radius, draw_color, thickness);
         break;
     case IMAGE_FORMAT_RGBA8888:
@@ -1625,6 +1634,7 @@ void draw_image(image_buffer_t* image, unsigned char* draw_img, int x, int y, in
     switch (format)
     {
     case IMAGE_FORMAT_RGB888:
+    case IMAGE_FORMAT_BGR888:
         draw_image_c3(pixels, w, h, draw_img, x, y, rw, rh);
         break;
     case IMAGE_FORMAT_RGBA8888:
