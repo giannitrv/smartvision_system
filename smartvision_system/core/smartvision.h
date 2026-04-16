@@ -7,10 +7,11 @@
 #include <chrono>
 #include <vector>
 #include "ai.h"
+#include "pantilt.h"
 
 class SmartVision {
 public:
-    SmartVision(int width, int height, int fps, const char *modelPath);
+    SmartVision(int width, int height, int fps, const char *modelPath, uint8_t panAngle, uint8_t tiltAngle);
     ~SmartVision();
     void start();
     void stop();
@@ -22,6 +23,7 @@ private:
     void captureLoop();
     cv::Mat applyZoom(cv::Mat frame);
     AI *ai;
+    PanTilt *panTilt;
     cv::Mat latestFrame;
     std::mutex frameMutex;
     cv::VideoCapture cap;
@@ -39,6 +41,10 @@ private:
     int textFont;
     int textThickness;
     int textSize;
+    uint8_t defaultPanAngle;
+    uint8_t defaultTiltAngle;
+    uint8_t panAngle;
+    uint8_t tiltAngle;
 };
 
 #endif // SMARTVISION_H

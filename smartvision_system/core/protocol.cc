@@ -12,6 +12,26 @@ void parseSetZoomCmd(const std::vector<uint8_t> &command, float *zoomFactor) {
     *zoomFactor = desiredZoom;
 }
 
+void parseSetGimbalCmd(const std::vector<uint8_t> &command, uint8_t *panAngle, uint8_t *tiltAngle) {
+    uint8_t desiredPan;
+    uint8_t desiredTilt;
+
+    desiredPan = command[1];
+    desiredTilt = command[2];
+    if (desiredPan < 0) {
+        desiredPan = 0;
+    } else if (desiredPan > 180) {
+        desiredPan = 180;
+    }
+    if (desiredTilt < 0) {
+        desiredTilt = 0;
+    } else if (desiredTilt > 180) {
+        desiredTilt = 180;
+    }
+    *panAngle = desiredPan;
+    *tiltAngle = desiredTilt;
+}
+
 std::vector<uint8_t> createSetZoomAck(float zoomFactor) {
     std::vector<uint8_t> response;
     uint8_t integerPart = (uint8_t)zoomFactor;
@@ -20,6 +40,17 @@ std::vector<uint8_t> createSetZoomAck(float zoomFactor) {
     response.push_back(SET_COOM_CMD_ID);
     response.push_back(integerPart);
     response.push_back(decimalPart);
+    response.push_back(0x00);
+    response.push_back(0x00);
+    return response;
+}
+
+std::vector<uint8_t> createSetGimbalAck(uint8_t panAngle, uint8_t tiltAngle) {
+    std::vector<uint8_t> response;
+
+    response.push_back(SET_GIMBAL_CMD_ID);
+    response.push_back(panAngle);
+    response.push_back(tiltAngle);
     response.push_back(0x00);
     response.push_back(0x00);
     return response;

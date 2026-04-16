@@ -15,6 +15,8 @@ struct Config {
     int height = 720;
     int fps = 30;
     std::string model_path = "./models/yolov8n.rknn";
+    uint8_t pan_angle = 90;
+    uint8_t tilt_angle = 90;
 };
 
 static Config load_config() {
@@ -27,6 +29,8 @@ static Config load_config() {
             if (j.contains("height")) cfg.height = j["height"];
             if (j.contains("fps")) cfg.fps = j["fps"];
             if (j.contains("model_path")) cfg.model_path = j["model_path"];
+            if (j.contains("pan_angle")) cfg.pan_angle = j["pan_angle"];
+            if (j.contains("tilt_angle")) cfg.tilt_angle = j["tilt_angle"];
             std::cout << "[Config] Loaded configuration from config.json" << std::endl;
         } catch (...) {
             std::cerr << "[Config] Failed to parse config.json, using defaults" << std::endl;
@@ -38,7 +42,14 @@ static Config load_config() {
 }
 
 static Config current_config = load_config();
-static SmartVision smartvision(current_config.width, current_config.height, current_config.fps, current_config.model_path.c_str());
+static SmartVision smartvision(
+    current_config.width,
+    current_config.height,
+    current_config.fps,
+    current_config.model_path.c_str(),
+    current_config.pan_angle,
+    current_config.tilt_angle
+);
 static uint64_t frame_count_ = 0;
 const GstClockTime frame_duration = GST_SECOND / static_cast<GstClockTime>(current_config.fps);
 
