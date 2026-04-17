@@ -13,23 +13,16 @@ void parseSetZoomCmd(const std::vector<uint8_t> &command, float *zoomFactor) {
 }
 
 void parseSetGimbalCmd(const std::vector<uint8_t> &command, uint8_t *panAngle, uint8_t *tiltAngle) {
-    uint8_t desiredPan;
-    uint8_t desiredTilt;
-
-    desiredPan = command[1];
-    desiredTilt = command[2];
-    if (desiredPan < 0) {
-        desiredPan = 0;
-    } else if (desiredPan > 180) {
-        desiredPan = 180;
+    if (command[1] == 43) {
+        *panAngle += 5;
+    } else if (command[1] == 45) {
+        *panAngle -= 5;
     }
-    if (desiredTilt < 0) {
-        desiredTilt = 0;
-    } else if (desiredTilt > 180) {
-        desiredTilt = 180;
+    if (command[2] == 43) {
+        *tiltAngle += 5;
+    } else if (command[2] == 45) {
+        *tiltAngle -= 5;
     }
-    *panAngle = desiredPan;
-    *tiltAngle = desiredTilt;
 }
 
 std::vector<uint8_t> createSetZoomAck(float zoomFactor) {

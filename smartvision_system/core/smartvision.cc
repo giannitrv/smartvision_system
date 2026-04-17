@@ -16,8 +16,8 @@ SmartVision::SmartVision(int width, int height, int fps, const char *modelPath, 
     textFont = cv::FONT_HERSHEY_SIMPLEX;
     textThickness = 1;
     textSize = 1;
-    panAngle = defaultPanAngle;
-    tiltAngle = defaultTiltAngle;
+    this->panAngle = defaultPanAngle;
+    this->tiltAngle = defaultTiltAngle;
     // Open camera. CAP_V4L2 + MJPG fourcc = same path as the old v4l2src
     // pipeline, but OpenCV transparently decodes the JPEG before handing us a BGR
     // frame.
@@ -35,7 +35,7 @@ SmartVision::SmartVision(int width, int height, int fps, const char *modelPath, 
     ai = new AI(modelPath);
     // Init pan tilt
     panTilt = new PanTilt(device, addr);
-    panTilt->update(defaultPanAngle, defaultTiltAngle, 0, 0, 0);
+    panTilt->update(defaultPanAngle, defaultTiltAngle);
     std::cout << "[SmartVision] Camera opened: "
               << cap.get(cv::CAP_PROP_FRAME_WIDTH) << "x"
               << cap.get(cv::CAP_PROP_FRAME_HEIGHT) << " @ "
@@ -43,7 +43,7 @@ SmartVision::SmartVision(int width, int height, int fps, const char *modelPath, 
 }
 
 SmartVision::~SmartVision() {
-    panTilt->update(defaultPanAngle, defaultTiltAngle, 0, 0, 0);
+    panTilt->update(defaultPanAngle, defaultTiltAngle);
     stop();
     delete ai;
     delete panTilt;
@@ -79,6 +79,8 @@ std::vector<uint8_t> SmartVision::parseCommand(const std::vector<uint8_t> &comma
             break;
         case SET_GIMBAL_CMD_ID:
             parseSetGimbalCmd(command, &panAngle, &tiltAngle);
+            panAngle = std::clamp<uint8_t>(panAngle, 30, 150);
+            tiltAngle = std::clamp<uint8_t>(tiltAngle, 30, 150);
             response = createSetGimbalAck(panAngle, tiltAngle);
             break;
         default:
@@ -94,7 +96,13 @@ cv::Mat SmartVision::process(cv::Mat &frame) {
     tm *ltm = localtime(&now);
     char text[100];
 
-    sprintf(text, "Zoom: %.1f FPS: %d Date: %02d/%02d/%d Time: %02d:%02d:%02d", zoomFactor, currentFps, ltm->tm_mday, ltm->tm_mon + 1, ltm->tm_year + 1900, ltm->tm_hour, ltm->tm_min, ltm->tm_sec);
+    sprintf(text, "Zoom: %.1f Pan: %d Tilt: %d FPS: %d Date: %02d/%02d/%d Time: %02d:%02d:%02d",
+        zoomFactor,
+        panAngle,
+        tiltAngle,
+        currentFps,
+        ltm->tm_mday, ltm->tm_mon + 1, ltm->tm_year + 1900,
+        ltm->tm_hour, ltm->tm_min, ltm->tm_sec);
     cv::putText(frame, text, textPos, textFont, textSize, textColor, textThickness);
     return frame;
 }
@@ -122,7 +130,7 @@ void SmartVision::captureLoop() {
         // Let the application process the frame (detection, drawing, etc.)
         cv::Mat processed = process(rawFrame);
         // Update pan tilt
-        panTilt->update(panAngle, tiltAngle, 0, 0, 0);
+        panTilt->update(panAngle, tiltAngle);
         // Update last frame
         std::lock_guard<std::mutex> lock(frameMutex);
         latestFrame = processed.clone();
