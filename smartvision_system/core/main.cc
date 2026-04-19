@@ -50,7 +50,6 @@ static SmartVision smartvision(
     current_config.pan_angle,
     current_config.tilt_angle
 );
-static uint64_t frame_count_ = 0;
 const GstClockTime frame_duration = GST_SECOND / static_cast<GstClockTime>(current_config.fps);
 
 /* called when we need to give data to appsrc */
@@ -58,6 +57,9 @@ static void need_data(GstElement *appsrc, guint unused) {
     cv::Mat frame;
 
     frame = smartvision.getLatestFrame();
+    if (frame.empty()) {
+        return;
+    }
 
     gsize size = frame.total() * frame.elemSize();
 
@@ -68,10 +70,12 @@ static void need_data(GstElement *appsrc, guint unused) {
     memcpy(map.data, frame.data, size);
     gst_buffer_unmap(buffer, &map);
 
-    GST_BUFFER_PTS(buffer) = frame_count_ * frame_duration;
-    GST_BUFFER_DURATION(buffer) = frame_duration;
-
-    frame_count_++;
+    guint64 *frame_count = (guint64 *)g_object_get_data(G_OBJECT(appsrc), "frame-count");
+    if (frame_count) {
+        GST_BUFFER_PTS(buffer) = (*frame_count) * frame_duration;
+        GST_BUFFER_DURATION(buffer) = frame_duration;
+        (*frame_count)++;
+    }
 
     GstFlowReturn ret;
     g_signal_emit_by_name(appsrc, "push-buffer", buffer, &ret);
@@ -101,6 +105,9 @@ static void media_configure(GstRTSPMediaFactory *factory, GstRTSPMedia *media,
                                     "framerate", GST_TYPE_FRACTION, current_config.fps,
                                     1, NULL),
                 NULL);
+
+    guint64 *frame_count = g_new0(guint64, 1);
+    g_object_set_data_full(G_OBJECT(appsrc), "frame-count", frame_count, (GDestroyNotify)g_free);
 
     /* install the callback that will be called when a buffer is needed */
     g_signal_connect(appsrc, "need-data", (GCallback)need_data, NULL);
@@ -151,6 +158,7 @@ int main(int argc, char *argv[]) {
                 " video/x-raw,format=NV12 !"
                 " mpph265enc rc-mode=vbr bps=4000000 gop=30 !"
                 " rtph265pay name=pay0 pt=96 )");
+    gst_rtsp_media_factory_set_shared(factory, TRUE);
 
     /* notify when our media is ready, This is called whenever someone asks for
     * the media and a new pipeline with our appsrc is created */
