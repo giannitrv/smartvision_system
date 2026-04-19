@@ -44,10 +44,11 @@ AI::~AI() {
 
 }
 
-void AI::process(cv::Mat &frame) {
+cv::Point AI::process(cv::Mat &frame, int target_id) {
     int ret;
     int bg_color = 114;
     letterbox_t letter_box;
+    cv::Point target_center(-1, -1);
 
     // Wrap the OpenCV BGR frame directly
     src_image.width = frame.cols;
@@ -61,7 +62,7 @@ void AI::process(cv::Mat &frame) {
     ret = convert_image_with_letterbox(&src_image, &dst_img, &letter_box, bg_color);
     if (ret < 0) {
         printf("convert_image_with_letterbox fail! ret=%d\n", ret);
-        return;
+        return target_center;
     }
 
     rknn_input dynamic_inputs[rknn_app_ctx.io_num.n_input];
@@ -75,14 +76,14 @@ void AI::process(cv::Mat &frame) {
     ret = rknn_inputs_set(rknn_app_ctx.rknn_ctx, rknn_app_ctx.io_num.n_input, dynamic_inputs);
     if (ret < 0) {
         printf("rknn_input_set fail! ret=%d\n", ret);
-        return;
+        return target_center;
     }
 
     // Inference
     ret = rknn_run(rknn_app_ctx.rknn_ctx, nullptr);
     if (ret < 0) {
         printf("rknn_run fail! ret=%d\n", ret);
-        return;
+        return target_center;
     }
 
     rknn_output dynamic_outputs[rknn_app_ctx.io_num.n_output];
@@ -94,7 +95,7 @@ void AI::process(cv::Mat &frame) {
     ret = rknn_outputs_get(rknn_app_ctx.rknn_ctx, rknn_app_ctx.io_num.n_output, dynamic_outputs, NULL);
     if (ret < 0) {
         printf("rknn_outputs_get fail! ret=%d\n", ret);
-        return;
+        return target_center;
     }
 
     // Post Process
@@ -102,20 +103,46 @@ void AI::process(cv::Mat &frame) {
     post_process(&rknn_app_ctx, dynamic_outputs, &letter_box, BOX_THRESH, NMS_THRESH, &od_results);
     rknn_outputs_release(rknn_app_ctx.rknn_ctx, rknn_app_ctx.io_num.n_output, dynamic_outputs);
 
-    // Draw
+    // Draw and Track
     char text[256];
+    std::vector<Object> objects;
     for (int i = 0; i < od_results.count; i++)
     {
         object_detect_result *det_result = &(od_results.results[i]);
-        int x1 = det_result->box.left;
-        int y1 = det_result->box.top;
-        int x2 = det_result->box.right;
-        int y2 = det_result->box.bottom;
-
-        draw_rectangle(&src_image, x1, y1, x2 - x1, y2 - y1, COLOR_GREEN, 1);
-
-        //sprintf(text, "%s %.1f%%", coco_cls_to_name(det_result->cls_id), det_result->prop * 100);
-        //sprintf(text, "%d %.1f%%", det_result->cls_id, det_result->prop * 100);
-        //draw_text(&src_image, text, x1, y1 - 20, COLOR_GREEN, 10);
+        Object obj;
+        obj.rect.x = det_result->box.left;
+        obj.rect.y = det_result->box.top;
+        obj.rect.width = det_result->box.right - det_result->box.left;
+        obj.rect.height = det_result->box.bottom - det_result->box.top;
+        obj.label = det_result->cls_id;
+        obj.prob = det_result->prop;
+        objects.push_back(obj);
     }
+
+    std::vector<STrack> output_stracks = tracker.update(objects);
+
+    for (int i = 0; i < output_stracks.size(); i++) {
+        std::vector<float> tlwh = output_stracks[i].tlwh;
+        int track_id = output_stracks[i].track_id;
+        int x1 = (int)tlwh[0];
+        int y1 = (int)tlwh[1];
+        int w = (int)tlwh[2];
+        int h = (int)tlwh[3];
+
+        cv::Scalar s = tracker.get_color(track_id);
+        unsigned int color = 0xFF000000 | ((int)s[2] << 16) | ((int)s[1] << 8) | ((int)s[0]);
+        int thickness = 2;
+
+        if (track_id == target_id) {
+            target_center = cv::Point(x1 + w / 2, y1 + h / 2);
+            color = COLOR_RED;
+            thickness = 4;
+        }
+
+        draw_rectangle(&src_image, x1, y1, w, h, color, thickness);
+
+        sprintf(text, "ID:%d", track_id);
+        draw_text(&src_image, text, x1, y1 - 20, color, 10);
+    }
+    return target_center;
 }

@@ -13,9 +13,10 @@ typedef enum {
 } sCommands_t;
 
 void parseSetZoomCmd(const std::vector<uint8_t> &command, float *zoomFactor);
-void parseSetGimbalCmd(const std::vector<uint8_t> &command, uint8_t *panAngle, uint8_t *tiltAngle);
+void parseSetGimbalCmd(const std::vector<uint8_t> &command, uint8_t *panAngle, uint8_t *tiltAngle, uint8_t *reset);
 std::vector<uint8_t> createSetZoomAck(float zoomFactor);
 std::vector<uint8_t> createSetGimbalAck(uint8_t panAngle, uint8_t tiltAngle);
+std::vector<uint8_t> createTargetTrackingAck(bool enabled);
 std::vector<uint8_t> createUnknownCmdAck(const std::vector<uint8_t> &command);
 
 #endif // PROTOCOL_H

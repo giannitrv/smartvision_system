@@ -5,7 +5,7 @@ class PID {
     public:
         PID(double Kp, double Ki, double Kd);
         ~PID();
-        double calculate(double setpoint, double measured_value, double dt);
+        double calculate(double error, double dt);
     private:
         double Kp, Ki, Kd;
         double max_integral;

@@ -16,6 +16,11 @@ add_library(ai_yolov8 STATIC
     ai.cc
     postprocess.cc
     ${rknpu_yolov8_file}
+    ../3rdparty/bytetrack/src/BYTETracker.cpp
+    ../3rdparty/bytetrack/src/STrack.cpp
+    ../3rdparty/bytetrack/src/kalmanFilter.cpp
+    ../3rdparty/bytetrack/src/lapjv.cpp
+    ../3rdparty/bytetrack/src/utils.cpp
 )
 
 target_link_libraries(ai_yolov8 PUBLIC
@@ -43,6 +48,8 @@ target_include_directories(ai_yolov8 PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${LIBRKNNRT_INCLUDES}
     ${OpenCV_INCLUDE_DIRS}
+    ${CMAKE_CURRENT_SOURCE_DIR}/../3rdparty/bytetrack/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../3rdparty/eigen
 )
 
 # Install rules for models if this component is installed

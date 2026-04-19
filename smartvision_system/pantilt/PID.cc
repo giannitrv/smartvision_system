@@ -1,15 +1,19 @@
 #include "PID.h"
 
-PID::PID(double Kp, double Ki, double Kd) : Kp(Kp), Ki(Ki), Kd(Kd), integral(0), previous_error(0) {
-    max_integral = 100;
+PID::PID(double Kp, double Ki, double Kd) {
+    this->Kp = Kp;
+    this->Ki = Ki;
+    this->Kd = Kd;
+    this->integral = 0;
+    this->previous_error = 0;
+    this->max_integral = 100;
 }
 
 PID::~PID() {
     // Destructor
 }
 
-double PID::calculate(double setpoint, double measured_value, double dt) {
-    double error = setpoint - measured_value;
+double PID::calculate(double error, double dt) {
     integral += error * dt;
 
     if (integral > max_integral) {

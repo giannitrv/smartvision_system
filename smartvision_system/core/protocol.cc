@@ -12,7 +12,7 @@ void parseSetZoomCmd(const std::vector<uint8_t> &command, float *zoomFactor) {
     *zoomFactor = desiredZoom;
 }
 
-void parseSetGimbalCmd(const std::vector<uint8_t> &command, uint8_t *panAngle, uint8_t *tiltAngle) {
+void parseSetGimbalCmd(const std::vector<uint8_t> &command, uint8_t *panAngle, uint8_t *tiltAngle, uint8_t *reset) {
     if (command[1] == 43) {
         *panAngle += 5;
     } else if (command[1] == 45) {
@@ -23,6 +23,7 @@ void parseSetGimbalCmd(const std::vector<uint8_t> &command, uint8_t *panAngle, u
     } else if (command[2] == 45) {
         *tiltAngle -= 5;
     }
+    *reset = command[3];
 }
 
 std::vector<uint8_t> createSetZoomAck(float zoomFactor) {
@@ -44,6 +45,17 @@ std::vector<uint8_t> createSetGimbalAck(uint8_t panAngle, uint8_t tiltAngle) {
     response.push_back(SET_GIMBAL_CMD_ID);
     response.push_back(panAngle);
     response.push_back(tiltAngle);
+    response.push_back(0x00);
+    response.push_back(0x00);
+    return response;
+}
+
+std::vector<uint8_t> createTargetTrackingAck(bool enabled) {
+    std::vector<uint8_t> response;
+
+    response.push_back(TARGET_TRACKING_CMD_ID);
+    response.push_back(enabled ? 1 : 0);
+    response.push_back(0x00);
     response.push_back(0x00);
     response.push_back(0x00);
     return response;
