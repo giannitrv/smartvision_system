@@ -53,6 +53,8 @@ private:
     uint8_t defaultTiltAngle;
     uint8_t panAngle;
     uint8_t tiltAngle;
+    int targetX;
+    int targetY;
     int targetId;
     bool targetTrackingEnabled;
 };

@@ -10,10 +10,11 @@ typedef enum {
     CAMERA_CONTROL_CMD_ID = 0x03,
     SET_IMAGE_TYPE_CMD_ID = 0x04,
     TARGET_TRACKING_CMD_ID = 0x05,
-} sCommands_t;
+} eCommands_t;
 
 void parseSetZoomCmd(const std::vector<uint8_t> &command, float *zoomFactor);
 void parseSetGimbalCmd(const std::vector<uint8_t> &command, uint8_t *panAngle, uint8_t *tiltAngle, uint8_t *reset);
+void parseTargetTrackingCmd(const std::vector<uint8_t> &command, int *targetX, int *targetY);
 std::vector<uint8_t> createSetZoomAck(float zoomFactor);
 std::vector<uint8_t> createSetGimbalAck(uint8_t panAngle, uint8_t tiltAngle);
 std::vector<uint8_t> createTargetTrackingAck(bool enabled);

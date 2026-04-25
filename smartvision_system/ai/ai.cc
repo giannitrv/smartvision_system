@@ -12,11 +12,9 @@ AI::AI(const char *model_path) {
     init_post_process();
 
     ret = init_yolov8_model(model_path, &rknn_app_ctx);
-    if (ret != 0)
-    {
+    if (ret != 0) {
         printf("init_yolov8_model fail! ret=%d model_path=%s\n", ret, model_path);
     }
-
     dst_img.width = rknn_app_ctx.model_width;
     dst_img.height = rknn_app_ctx.model_height;
     dst_img.format = IMAGE_FORMAT_RGB888;
@@ -33,11 +31,9 @@ AI::~AI() {
     deinit_post_process();
 
     ret = release_yolov8_model(&rknn_app_ctx);
-    if (ret != 0)
-    {
+    if (ret != 0) {
         printf("release_yolov8_model fail! ret=%d\n", ret);
     }
-
     if (dst_img.virt_addr != NULL) {
         free(dst_img.virt_addr);
     }
@@ -47,8 +43,11 @@ AI::~AI() {
 cv::Point AI::process(cv::Mat &frame, int target_id) {
     int ret;
     int bg_color = 114;
+    char text[256];
     letterbox_t letter_box;
     cv::Point target_center(-1, -1);
+    std::vector<Object> objects;
+    std::vector<STrack> output_stracks;
 
     // Wrap the OpenCV BGR frame directly
     src_image.width = frame.cols;
@@ -78,14 +77,12 @@ cv::Point AI::process(cv::Mat &frame, int target_id) {
         printf("rknn_input_set fail! ret=%d\n", ret);
         return target_center;
     }
-
     // Inference
     ret = rknn_run(rknn_app_ctx.rknn_ctx, nullptr);
     if (ret < 0) {
         printf("rknn_run fail! ret=%d\n", ret);
         return target_center;
     }
-
     rknn_output dynamic_outputs[rknn_app_ctx.io_num.n_output];
     memset(dynamic_outputs, 0, sizeof(dynamic_outputs));
     for (int i = 0; i < rknn_app_ctx.io_num.n_output; i++) {
@@ -97,17 +94,12 @@ cv::Point AI::process(cv::Mat &frame, int target_id) {
         printf("rknn_outputs_get fail! ret=%d\n", ret);
         return target_center;
     }
-
     // Post Process
     memset(&od_results, 0x00, sizeof(od_results));
     post_process(&rknn_app_ctx, dynamic_outputs, &letter_box, BOX_THRESH, NMS_THRESH, &od_results);
     rknn_outputs_release(rknn_app_ctx.rknn_ctx, rknn_app_ctx.io_num.n_output, dynamic_outputs);
-
     // Draw and Track
-    char text[256];
-    std::vector<Object> objects;
-    for (int i = 0; i < od_results.count; i++)
-    {
+    for (int i = 0; i < od_results.count; i++) {
         object_detect_result *det_result = &(od_results.results[i]);
         Object obj;
         obj.rect.x = det_result->box.left;
@@ -119,7 +111,11 @@ cv::Point AI::process(cv::Mat &frame, int target_id) {
         objects.push_back(obj);
     }
 
-    std::vector<STrack> output_stracks = tracker.update(objects);
+    output_stracks = tracker.update(objects);
+    {
+        std::lock_guard<std::mutex> lock(tracksMutex);
+        lastTracks = output_stracks;
+    }
 
     for (int i = 0; i < output_stracks.size(); i++) {
         std::vector<float> tlwh = output_stracks[i].tlwh;
@@ -144,5 +140,23 @@ cv::Point AI::process(cv::Mat &frame, int target_id) {
         sprintf(text, "ID:%d", track_id);
         draw_text(&src_image, text, x1, y1 - 20, color, 10);
     }
+
     return target_center;
+}
+
+int AI::getTargetIdAt(int x, int y) const {
+    std::lock_guard<std::mutex> lock(tracksMutex);
+    for (const STrack &track : lastTracks) {
+        const std::vector<float> &tlwh = track.tlwh;
+        int x1 = (int)tlwh[0];
+        int y1 = (int)tlwh[1];
+        int x2 = x1 + (int)tlwh[2];
+        int y2 = y1 + (int)tlwh[3];
+
+        if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
+            return track.track_id;
+        }
+    }
+
+    return -1; // no target found at the given coordinates
 }

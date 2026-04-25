@@ -103,8 +103,11 @@ std::vector<uint8_t> SmartVision::parseCommand(const std::vector<uint8_t> &comma
             response = createSetGimbalAck(panAngle, tiltAngle);
             break;
         case TARGET_TRACKING_CMD_ID:
-            targetTrackingEnabled = !targetTrackingEnabled;
-            targetId = 1;
+            parseTargetTrackingCmd(command, &targetX, &targetY);
+            targetX = targetX * width / 255;
+            targetY = targetY * height / 255;
+            targetId = ai->getTargetIdAt(targetX, targetY);
+            targetTrackingEnabled = (targetId != -1);
             response = createTargetTrackingAck(targetTrackingEnabled);
             break;
         default:
@@ -134,6 +137,7 @@ cv::Mat SmartVision::process(cv::Mat &frame) {
 void SmartVision::captureLoop(void) {
     cv::Mat rawFrame;
     std::chrono::milliseconds currTime;
+    cv::Point targetCenter;
     int error_x = 0;
     int error_y = 0;
     double pid_x = 0;
@@ -156,10 +160,10 @@ void SmartVision::captureLoop(void) {
             continue;
         }
         rawFrame = applyZoom(rawFrame);
-        cv::Point target_center = ai->process(rawFrame, targetTrackingEnabled ? targetId : -1);
+        targetCenter = ai->process(rawFrame, targetTrackingEnabled ? targetId : -1);
         // Track target
-        if (targetTrackingEnabled && target_center.x != -1) {
-            trackTarget(target_center);
+        if (targetTrackingEnabled && targetCenter.x != -1) {
+            trackTarget(targetCenter);
         }
         // Let the application process the frame (detection, drawing, etc.)
         cv::Mat processed = process(rawFrame);

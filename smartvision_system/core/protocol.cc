@@ -26,6 +26,11 @@ void parseSetGimbalCmd(const std::vector<uint8_t> &command, uint8_t *panAngle, u
     *reset = command[3];
 }
 
+void parseTargetTrackingCmd(const std::vector<uint8_t> &command, int *targetX, int *targetY) {
+    *targetX = command[1];
+    *targetY = command[2];
+}
+
 std::vector<uint8_t> createSetZoomAck(float zoomFactor) {
     std::vector<uint8_t> response;
     uint8_t integerPart = (uint8_t)zoomFactor;
@@ -36,6 +41,7 @@ std::vector<uint8_t> createSetZoomAck(float zoomFactor) {
     response.push_back(decimalPart);
     response.push_back(0x00);
     response.push_back(0x00);
+
     return response;
 }
 
@@ -47,6 +53,7 @@ std::vector<uint8_t> createSetGimbalAck(uint8_t panAngle, uint8_t tiltAngle) {
     response.push_back(tiltAngle);
     response.push_back(0x00);
     response.push_back(0x00);
+
     return response;
 }
 
@@ -58,6 +65,7 @@ std::vector<uint8_t> createTargetTrackingAck(bool enabled) {
     response.push_back(0x00);
     response.push_back(0x00);
     response.push_back(0x00);
+
     return response;
 }
 
