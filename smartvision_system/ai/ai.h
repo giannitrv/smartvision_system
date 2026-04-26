@@ -12,7 +12,7 @@ class AI {
 public:
     AI(const char *model_path);
     ~AI();
-    cv::Point process(cv::Mat &frame, int target_id = -1);
+    cv::Point process(cv::Mat &frame, int target_id = -1, float *trackedSize = nullptr);
     // Returns the track_id of the tracked object whose bounding box contains
     // the point (x, y), or -1 if no match is found.
     int getTargetIdAt(int x, int y) const;

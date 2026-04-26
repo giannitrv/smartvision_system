@@ -40,7 +40,7 @@ AI::~AI() {
 
 }
 
-cv::Point AI::process(cv::Mat &frame, int target_id) {
+cv::Point AI::process(cv::Mat &frame, int target_id, float *trackedSize) {
     int ret;
     int bg_color = 114;
     char text[256];
@@ -131,6 +131,9 @@ cv::Point AI::process(cv::Mat &frame, int target_id) {
 
         if (track_id == target_id) {
             target_center = cv::Point(x1 + w / 2, y1 + h / 2);
+            if (trackedSize != nullptr) {
+                *trackedSize = std::sqrt(static_cast<float>(w * h));
+            }
             color = COLOR_RED;
             thickness = 4;
         }

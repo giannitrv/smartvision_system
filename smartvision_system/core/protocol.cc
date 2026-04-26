@@ -31,4 +31,6 @@ void parseTargetTrackingCmd(const std::vector<uint8_t> &command, int *targetX, i
     *targetY = command[2];
 }
 
-
+void parseTrackingModeCmd(const std::vector<uint8_t> &command, bool *autoZoom) {
+    *autoZoom = (command[1] > 0);
+}

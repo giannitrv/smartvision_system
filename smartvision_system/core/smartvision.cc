@@ -1,36 +1,50 @@
 #include <ctime>
+#include <fstream>
+#include <iostream>
+#include <nlohmann/json.hpp>
 #include "smartvision.h"
 #include "protocol.h"
 #include "image_utils.h"
 #include "PID.h"
+
+using json = nlohmann::json;
 
 const uint8_t SmartVision::MIN_PAN_ANGLE = 30;
 const uint8_t SmartVision::MAX_PAN_ANGLE = 150;
 const uint8_t SmartVision::MIN_TILT_ANGLE = 30;
 const uint8_t SmartVision::MAX_TILT_ANGLE = 150;
 
-SmartVision::SmartVision(int width, int height, int fps, const char *modelPath, uint8_t panAngle, uint8_t tiltAngle)
-    : width(width), height(height), fps(fps), defaultPanAngle(panAngle), defaultTiltAngle(tiltAngle) {
+SmartVision::SmartVision(const std::string &configPath)
+    : width(1280), height(720), fps(30), refTargetSize(-1.0f) {
     const char* device = "/dev/i2c-8";
     const int addr = 0x40;
+    // --- Default values ---
+    std::string modelPath = "./models/yolov8n.rknn";
+    uint8_t panAngle  = 100;
+    uint8_t tiltAngle = 90;
+    float panKp = 12.0f, panKi = 0.0f, panKd = 0.5f;
+    float tiltKp = 7.0f, tiltKi = 0.0f, tiltKd = 0.3f;
 
+    // --- Load config from JSON ---
+    loadConfig(configPath, &modelPath, &panKp, &panKi, &panKd, &tiltKp, &tiltKi, &tiltKd);
+
+    defaultPanAngle  = panAngle;
+    defaultTiltAngle = tiltAngle;
     zoomFactor = 1.0;
     fpsCounter = 0;
     // Init text variables
-    textPos = cv::Point(10, 30);
-    textColor = cv::Scalar(0, 255, 0);
-    textFont = cv::FONT_HERSHEY_SIMPLEX;
+    textPos       = cv::Point(10, 30);
+    textColor     = cv::Scalar(0, 255, 0);
+    textFont      = cv::FONT_HERSHEY_SIMPLEX;
     textThickness = 1;
-    textSize = 1;
+    textSize      = 1;
     // Init pan tilt angles
-    this->panAngle = defaultPanAngle;
+    this->panAngle  = defaultPanAngle;
     this->tiltAngle = defaultTiltAngle;
-    // Open camera. CAP_V4L2 + MJPG fourcc = same path as the old v4l2src
-    // pipeline, but OpenCV transparently decodes the JPEG before handing us a BGR
-    // frame.
+    // Open camera
     cap.open(0, cv::CAP_V4L2);
     cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'));
-    cap.set(cv::CAP_PROP_FRAME_WIDTH, width);
+    cap.set(cv::CAP_PROP_FRAME_WIDTH,  width);
     cap.set(cv::CAP_PROP_FRAME_HEIGHT, height);
     cap.set(cv::CAP_PROP_FPS, fps);
 
@@ -39,16 +53,16 @@ SmartVision::SmartVision(int width, int height, int fps, const char *modelPath, 
         return;
     }
     // Init ai model
-    ai = new AI(modelPath);
+    ai = new AI(modelPath.c_str());
     // Init pan tilt
     panTilt = new PanTilt(device, addr);
     panTilt->update(defaultPanAngle, defaultTiltAngle);
     // Init PID
-    panPid = new PID(25.0f, 0.0f, 0.0f);
-    tiltPid = new PID(14.0f, 0.0f, 0.0f);
+    panPid  = new PID(panKp,  panKi,  panKd);
+    tiltPid = new PID(tiltKp, tiltKi, tiltKd);
     // Print camera info
     std::cout << "[SmartVision] Camera opened: "
-              << cap.get(cv::CAP_PROP_FRAME_WIDTH) << "x"
+              << cap.get(cv::CAP_PROP_FRAME_WIDTH)  << "x"
               << cap.get(cv::CAP_PROP_FRAME_HEIGHT) << " @ "
               << cap.get(cv::CAP_PROP_FPS) << " fps\n";
 }
@@ -110,9 +124,39 @@ void SmartVision::parseCommand(const std::vector<uint8_t> &command) {
             targetY = targetY * height / 255;
             targetId = ai->getTargetIdAt(targetX, targetY);
             targetTrackingEnabled = (targetId != -1);
+            refTargetSize = -1.0f; // will be captured on the first valid tracking frame
+            break;
+        case TRACKING_MODE_CMD_ID:
+            parseTrackingModeCmd(command, &autoZoom);
             break;
         default:
             break;
+    }
+}
+
+void SmartVision::loadConfig(const std::string &configPath, std::string *modelPath, float *panKp, float *panKi, float *panKd, float *tiltKp, float *tiltKi, float *tiltKd) {
+    std::ifstream f(configPath);
+    if (f.is_open()) {
+        try {
+            json j = json::parse(f);
+            if (j.contains("width"))      width      = j["width"];
+            if (j.contains("height"))     height     = j["height"];
+            if (j.contains("fps"))        fps        = j["fps"];
+            if (j.contains("model_path")) *modelPath = j["model_path"].get<std::string>();
+            if (j.contains("pan_angle"))  panAngle   = j["pan_angle"];
+            if (j.contains("tilt_angle")) tiltAngle  = j["tilt_angle"];
+            if (j.contains("pan_kp"))     *panKp      = j["pan_kp"];
+            if (j.contains("pan_ki"))     *panKi      = j["pan_ki"];
+            if (j.contains("pan_kd"))     *panKd      = j["pan_kd"];
+            if (j.contains("tilt_kp"))    *tiltKp     = j["tilt_kp"];
+            if (j.contains("tilt_ki"))    *tiltKi     = j["tilt_ki"];
+            if (j.contains("tilt_kd"))    *tiltKd     = j["tilt_kd"];
+            std::cout << "[SmartVision] Loaded configuration from " << configPath << "\n";
+        } catch (...) {
+            std::cerr << "[SmartVision] Failed to parse " << configPath << ", using defaults\n";
+        }
+    } else {
+        std::cerr << "[SmartVision] Could not open " << configPath << ", using defaults\n";
     }
 }
 
@@ -158,7 +202,13 @@ void SmartVision::captureLoop(void) {
             continue;
         }
         rawFrame = applyZoom(rawFrame);
-        targetCenter = ai->process(rawFrame, targetTrackingEnabled ? targetId : -1);
+        float trackedSize = -1.0f;
+        targetCenter = ai->process(rawFrame, targetTrackingEnabled ? targetId : -1,
+                                   targetTrackingEnabled ? &trackedSize : nullptr);
+        // Auto-zoom: lock to bbox size captured at selection time
+        if (targetTrackingEnabled && trackedSize > 0.0f && autoZoom) {
+            zoomTracking(trackedSize);
+        }
         // Track target
         if (targetTrackingEnabled && targetCenter.x != -1) {
             trackTarget(targetCenter);
@@ -229,9 +279,11 @@ void SmartVision::trackTarget(cv::Point targetCenter) {
 
     errX = targetCenter.x - (width / 2);
     errY = targetCenter.y - (height / 2);
-    // Normalize error to range [-1, 1]
-    normX = (double)errX / width;
-    normY = (double)errY / height;
+    // Normalize error to [-1, 1] and compensate for zoom:
+    // at zoom Z the FOV is 1/Z narrower, so the same pixel offset
+    // corresponds to a proportionally smaller angular movement.
+    normX = (double)errX / (width  * zoomFactor);
+    normY = (double)errY / (height * zoomFactor);
     // Dead zone
     if (std::abs(normX) < 0.05) {
         normX = 0.0;
@@ -244,7 +296,19 @@ void SmartVision::trackTarget(cv::Point targetCenter) {
     pidY = tiltPid->calculate(normY, dtMs);
     newPan = panAngle - (int)pidX;
     newTilt = tiltAngle - (int)pidY;
-    //std::cout << "[SmartVision] New pan: " << newPan << " New tilt: " << newTilt << std::endl;
     panAngle = std::clamp<int>(newPan, MIN_PAN_ANGLE, MAX_PAN_ANGLE);
     tiltAngle = std::clamp<int>(newTilt, MIN_TILT_ANGLE, MAX_TILT_ANGLE);
+}
+
+void SmartVision::zoomTracking(float currSize) {
+    if (refTargetSize < 0.0f) {
+        // First valid frame after target selection: capture reference size
+        refTargetSize = currSize;
+        return;
+    }
+    if (currSize <= 0.0f) return;
+
+    float targetZoom = zoomFactor * (refTargetSize / currSize);
+    targetZoom = std::clamp(targetZoom, 1.0f, 5.0f);
+    zoomFactor += zoomAlpha * (targetZoom - zoomFactor);
 }

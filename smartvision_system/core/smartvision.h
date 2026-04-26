@@ -5,6 +5,7 @@
 #include <opencv2/opencv.hpp>
 #include <thread>
 #include <chrono>
+#include <string>
 #include <vector>
 #include "ai.h"
 #include "pantilt.h"
@@ -14,11 +15,15 @@ struct VisionMetadata {
     float zoom;
     uint8_t pan;
     uint8_t tilt;
+    bool autoZoom;
 };
 
 class SmartVision {
 public:
-    SmartVision(int width, int height, int fps, const char *modelPath, uint8_t panAngle, uint8_t tiltAngle);
+    explicit SmartVision(const std::string &configPath = "config.json");
+    int getWidth() const { return width; }
+    int getHeight() const { return height; }
+    int getFps() const { return fps; }
     ~SmartVision();
     void start(void);
     void stop(void);
@@ -31,7 +36,9 @@ private:
     static const uint8_t MAX_PAN_ANGLE;
     static const uint8_t MIN_TILT_ANGLE;
     static const uint8_t MAX_TILT_ANGLE;
+    void loadConfig(const std::string &configPath, std::string *modelPath, float *panKp, float *panKi, float *panKd, float *tiltKp, float *tiltKi, float *tiltKd);
     cv::Mat process(cv::Mat &frame);
+    void zoomTracking(float currSize);
     void captureLoop(void);
     cv::Mat applyZoom(cv::Mat frame);
     void trackTarget(cv::Point targetCenter);
@@ -64,6 +71,9 @@ private:
     int targetY;
     int targetId;
     bool targetTrackingEnabled;
+    bool autoZoom;
+    float refTargetSize;
+    static constexpr float zoomAlpha = 0.05f;
 };
 
 #endif // SMARTVISION_H

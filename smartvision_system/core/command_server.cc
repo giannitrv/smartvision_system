@@ -107,6 +107,7 @@ void CommandServer::telemetryLoop() {
         payload["zoom"] = meta.zoom;
         payload["pan"]  = meta.pan;
         payload["tilt"] = meta.tilt;
+        payload["autoZoom"] = meta.autoZoom;
 
         std::string msg = payload.dump();
         sendto(socketFd, msg.c_str(), msg.size(),
