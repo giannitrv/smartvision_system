@@ -82,14 +82,17 @@ cv::Mat SmartVision::getLatestFrame(void) {
     return latestFrame.clone();
 }
 
-std::vector<uint8_t> SmartVision::parseCommand(const std::vector<uint8_t> &command) {
-    std::vector<uint8_t> response;
+VisionMetadata SmartVision::getMetadata(void) {
+    std::lock_guard<std::mutex> lock(frameMutex);
+    return {zoomFactor, panAngle, tiltAngle};
+}
+
+void SmartVision::parseCommand(const std::vector<uint8_t> &command) {
     uint8_t reset;
 
     switch (command[0]) {
         case SET_COOM_CMD_ID:
             parseSetZoomCmd(command, &zoomFactor);
-            response = createSetZoomAck(zoomFactor);
             break;
         case SET_GIMBAL_CMD_ID:
             parseSetGimbalCmd(command, &panAngle, &tiltAngle, &reset);
@@ -100,7 +103,6 @@ std::vector<uint8_t> SmartVision::parseCommand(const std::vector<uint8_t> &comma
                 panAngle = std::clamp<uint8_t>(panAngle, MIN_PAN_ANGLE, MAX_PAN_ANGLE);
                 tiltAngle = std::clamp<uint8_t>(tiltAngle, MIN_TILT_ANGLE, MAX_TILT_ANGLE);
             }
-            response = createSetGimbalAck(panAngle, tiltAngle);
             break;
         case TARGET_TRACKING_CMD_ID:
             parseTargetTrackingCmd(command, &targetX, &targetY);
@@ -108,14 +110,10 @@ std::vector<uint8_t> SmartVision::parseCommand(const std::vector<uint8_t> &comma
             targetY = targetY * height / 255;
             targetId = ai->getTargetIdAt(targetX, targetY);
             targetTrackingEnabled = (targetId != -1);
-            response = createTargetTrackingAck(targetTrackingEnabled);
             break;
         default:
-            response = createUnknownCmdAck(command);
-        break;
+            break;
     }
-
-    return response;
 }
 
 cv::Mat SmartVision::process(cv::Mat &frame) {

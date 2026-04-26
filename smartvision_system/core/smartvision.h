@@ -10,6 +10,12 @@
 #include "pantilt.h"
 #include "PID.h"
 
+struct VisionMetadata {
+    float zoom;
+    uint8_t pan;
+    uint8_t tilt;
+};
+
 class SmartVision {
 public:
     SmartVision(int width, int height, int fps, const char *modelPath, uint8_t panAngle, uint8_t tiltAngle);
@@ -17,7 +23,8 @@ public:
     void start(void);
     void stop(void);
     cv::Mat getLatestFrame(void);
-    std::vector<uint8_t> parseCommand(const std::vector<uint8_t> &command);
+    VisionMetadata getMetadata(void);
+    void parseCommand(const std::vector<uint8_t> &command);
 
 private:
     static const uint8_t MIN_PAN_ANGLE;

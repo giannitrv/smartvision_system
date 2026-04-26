@@ -3,6 +3,11 @@
 #include <arpa/inet.h>
 #include <cstring>
 #include <unistd.h>
+#include <chrono>
+#include <thread>
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
 
 CommandServer::CommandServer(SmartVision& vision) : smartvision(vision), socketFd(-1) {
     socketFd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -46,7 +51,8 @@ CommandServer::~CommandServer() {
 void CommandServer::run() {
     if (socketFd < 0) return;
     running = true;
-    serverThread = std::thread(&CommandServer::serverLoop, this);
+    serverThread   = std::thread(&CommandServer::serverLoop,   this);
+    telemetryThread = std::thread(&CommandServer::telemetryLoop, this);
 }
 
 void CommandServer::stop() {
@@ -54,22 +60,56 @@ void CommandServer::stop() {
     if (serverThread.joinable()) {
         serverThread.join();
     }
+    if (telemetryThread.joinable()) {
+        telemetryThread.join();
+    }
 }
 
 void CommandServer::serverLoop() {
     char buffer[5];
-    sockaddr_in clientAddr;
-    socklen_t clientLen = sizeof(clientAddr);
-    std::vector<uint8_t> response;
+    sockaddr_in addr;
+    socklen_t addrLen = sizeof(addr);
 
     while (running) {
-        int n = recvfrom(socketFd, buffer, sizeof(buffer), 
-                         0, (struct sockaddr *) &clientAddr, &clientLen);
+        int n = recvfrom(socketFd, buffer, sizeof(buffer),
+                         0, (struct sockaddr *)&addr, &addrLen);
         if (n > 0) {
+            // Store client address for telemetry
+            {
+                std::lock_guard<std::mutex> lock(clientAddrMutex);
+                clientAddr      = addr;
+                clientAddrValid = true;
+            }
+            // Parse and apply command (no ACK sent)
             std::vector<uint8_t> command(buffer, buffer + n);
-            response = smartvision.parseCommand(command);
-            sendto(socketFd, response.data(), response.size(), 
-                   0, (const struct sockaddr *) &clientAddr, sizeof(clientAddr));
+            smartvision.parseCommand(command);
         }
+    }
+}
+
+void CommandServer::telemetryLoop() {
+    while (running) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(TELEMETRY_INTERVAL_MS));
+
+        sockaddr_in dest;
+        bool valid;
+        {
+            std::lock_guard<std::mutex> lock(clientAddrMutex);
+            dest  = clientAddr;
+            valid = clientAddrValid;
+        }
+
+        if (!valid) continue;
+
+        VisionMetadata meta = smartvision.getMetadata();
+
+        json payload;
+        payload["zoom"] = meta.zoom;
+        payload["pan"]  = meta.pan;
+        payload["tilt"] = meta.tilt;
+
+        std::string msg = payload.dump();
+        sendto(socketFd, msg.c_str(), msg.size(),
+               0, (const struct sockaddr *)&dest, sizeof(dest));
     }
 }
