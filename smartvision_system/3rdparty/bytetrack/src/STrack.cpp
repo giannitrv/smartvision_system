@@ -1,12 +1,13 @@
 #include "STrack.h"
 
-STrack::STrack(vector<float> tlwh_, float score)
+STrack::STrack(vector<float> tlwh_, float score, int label)
 {
 	_tlwh.resize(4);
 	_tlwh.assign(tlwh_.begin(), tlwh_.end());
 
 	is_activated = false;
 	track_id = 0;
+	class_label = label;
 	state = TrackState::New;
 	
 	tlwh.resize(4);
@@ -78,6 +79,7 @@ void STrack::re_activate(STrack &new_track, int frame_id, bool new_id)
 	this->is_activated = true;
 	this->frame_id = frame_id;
 	this->score = new_track.score;
+	this->class_label = new_track.class_label;
 	if (new_id)
 		this->track_id = next_id();
 }
@@ -105,6 +107,7 @@ void STrack::update(STrack &new_track, int frame_id)
 	this->is_activated = true;
 
 	this->score = new_track.score;
+	this->class_label = new_track.class_label;
 }
 
 void STrack::static_tlwh()

@@ -20,8 +20,8 @@ SmartVision::SmartVision(const std::string &configPath)
     const int addr = 0x40;
     // --- Default values ---
     std::string modelPath = "./models/yolov8n.rknn";
-    uint8_t panAngle  = 100;
-    uint8_t tiltAngle = 90;
+    panAngle  = 100;
+    tiltAngle = 90;
     float panKp = 12.0f, panKi = 0.0f, panKd = 0.5f;
     float tiltKp = 7.0f, tiltKi = 0.0f, tiltKd = 0.3f;
 
@@ -33,11 +33,18 @@ SmartVision::SmartVision(const std::string &configPath)
     zoomFactor = 1.0;
     fpsCounter = 0;
     // Init text variables
-    textPos       = cv::Point(10, 30);
+    osdEnabled    = true;
+    osdScale      = 1.0;
+    osdPosX       = 10;
+    osdPosY       = 30;
     textColor     = cv::Scalar(0, 255, 0);
     textFont      = cv::FONT_HERSHEY_SIMPLEX;
     textThickness = 1;
     textSize      = 1;
+    autoReturnTimeoutMs = 3000;
+    isManualGimbalMove = false;
+    lastTrackTime = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::high_resolution_clock::now().time_since_epoch());
     // Init pan tilt angles
     this->panAngle  = defaultPanAngle;
     this->tiltAngle = defaultTiltAngle;
@@ -78,6 +85,17 @@ SmartVision::~SmartVision() {
 }
 
 void SmartVision::start(void) {
+    if (!cap.isOpened()) {
+        cap.open(0, cv::CAP_V4L2);
+        cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'));
+        cap.set(cv::CAP_PROP_FRAME_WIDTH,  width);
+        cap.set(cv::CAP_PROP_FRAME_HEIGHT, height);
+        cap.set(cv::CAP_PROP_FPS, fps);
+        if (!cap.isOpened()) {
+            std::cerr << "[SmartVision] ERROR: Could not re-open camera in start().\n";
+            return;
+        }
+    }
     running = true;
     fpsStart = std::chrono::duration_cast<std::chrono::milliseconds>(
       std::chrono::high_resolution_clock::now().time_since_epoch());
@@ -105,7 +123,7 @@ void SmartVision::parseCommand(const std::vector<uint8_t> &command) {
     uint8_t reset;
 
     switch (command[0]) {
-        case SET_COOM_CMD_ID:
+        case SET_ZOOM_CMD_ID:
             parseSetZoomCmd(command, &zoomFactor);
             break;
         case SET_GIMBAL_CMD_ID:
@@ -113,10 +131,15 @@ void SmartVision::parseCommand(const std::vector<uint8_t> &command) {
             if (reset) {
                 panAngle = defaultPanAngle;
                 tiltAngle = defaultTiltAngle;
+                isManualGimbalMove = false;
             } else {
                 panAngle = std::clamp<uint8_t>(panAngle, MIN_PAN_ANGLE, MAX_PAN_ANGLE);
                 tiltAngle = std::clamp<uint8_t>(tiltAngle, MIN_TILT_ANGLE, MAX_TILT_ANGLE);
+                isManualGimbalMove = true;
             }
+            break;
+        case CAMERA_CONTROL_CMD_ID:
+            parseCameraControlCmd(command, &cameraControl, &osdEnabled);
             break;
         case TARGET_TRACKING_CMD_ID:
             parseTargetTrackingCmd(command, &targetX, &targetY);
@@ -124,7 +147,12 @@ void SmartVision::parseCommand(const std::vector<uint8_t> &command) {
             targetY = targetY * height / 255;
             targetId = ai->getTargetIdAt(targetX, targetY);
             targetTrackingEnabled = (targetId != -1);
+            if (targetTrackingEnabled) {
+                isManualGimbalMove = false;
+            }
             refTargetSize = -1.0f; // will be captured on the first valid tracking frame
+            lastTrackTime = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::high_resolution_clock::now().time_since_epoch());
             break;
         case TRACKING_MODE_CMD_ID:
             parseTrackingModeCmd(command, &autoZoom);
@@ -151,6 +179,15 @@ void SmartVision::loadConfig(const std::string &configPath, std::string *modelPa
             if (j.contains("tilt_kp"))    *tiltKp     = j["tilt_kp"];
             if (j.contains("tilt_ki"))    *tiltKi     = j["tilt_ki"];
             if (j.contains("tilt_kd"))    *tiltKd     = j["tilt_kd"];
+            if (j.contains("auto_return_timeout_ms")) autoReturnTimeoutMs = j["auto_return_timeout_ms"];
+            if (j.contains("osd_enabled"))            osdEnabled = j["osd_enabled"];
+            if (j.contains("osd_scale"))              osdScale = j["osd_scale"];
+            if (j.contains("osd_thickness"))          textThickness = j["osd_thickness"];
+            if (j.contains("osd_pos_x"))              osdPosX = j["osd_pos_x"];
+            if (j.contains("osd_pos_y"))              osdPosY = j["osd_pos_y"];
+            if (j.contains("osd_color") && j["osd_color"].is_array() && j["osd_color"].size() == 3) {
+                textColor = cv::Scalar(j["osd_color"][0], j["osd_color"][1], j["osd_color"][2]);
+            }
             std::cout << "[SmartVision] Loaded configuration from " << configPath << "\n";
         } catch (...) {
             std::cerr << "[SmartVision] Failed to parse " << configPath << ", using defaults\n";
@@ -163,16 +200,18 @@ void SmartVision::loadConfig(const std::string &configPath, std::string *modelPa
 cv::Mat SmartVision::process(cv::Mat &frame) {
     time_t now = time(0);
     tm *ltm = localtime(&now);
-    char text[100];
+    char text[128];
 
-    sprintf(text, "Zoom: %.1f Pan: %d Tilt: %d FPS: %d Date: %02d/%02d/%d Time: %02d:%02d:%02d",
-        zoomFactor,
-        panAngle,
-        tiltAngle,
-        currentFps,
-        ltm->tm_mday, ltm->tm_mon + 1, ltm->tm_year + 1900,
-        ltm->tm_hour, ltm->tm_min, ltm->tm_sec);
-    cv::putText(frame, text, textPos, textFont, textSize, textColor, textThickness);
+    if (osdEnabled) {
+        snprintf(text, sizeof(text), "Zoom: %.1f Pan: %d Tilt: %d FPS: %d Date: %02d/%02d/%d Time: %02d:%02d:%02d",
+            zoomFactor,
+            panAngle,
+            tiltAngle,
+            currentFps,
+            ltm->tm_mday, ltm->tm_mon + 1, ltm->tm_year + 1900,
+            ltm->tm_hour, ltm->tm_min, ltm->tm_sec);
+        cv::putText(frame, text, cv::Point(osdPosX, osdPosY), textFont, osdScale, textColor, textThickness);
+    }
     return frame;
 }
 
@@ -192,7 +231,7 @@ void SmartVision::captureLoop(void) {
         currTime = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::high_resolution_clock::now().time_since_epoch());
         if (currTime - fpsStart > std::chrono::seconds(2)) {
-            currentFps = fpsCounter / 2;
+            currentFps = (fpsCounter * 1000) / (currTime - fpsStart).count();
             fpsStart = currTime;
             fpsCounter = 0;
         }
@@ -211,7 +250,16 @@ void SmartVision::captureLoop(void) {
         }
         // Track target
         if (targetTrackingEnabled && targetCenter.x != -1) {
+            lastTrackTime = currTime;
             trackTarget(targetCenter);
+        } else if (!isManualGimbalMove) {
+            if (autoReturnTimeoutMs > 0 && (currTime - lastTrackTime).count() > autoReturnTimeoutMs) {
+                if (panAngle > defaultPanAngle) panAngle--;
+                else if (panAngle < defaultPanAngle) panAngle++;
+                
+                if (tiltAngle > defaultTiltAngle) tiltAngle--;
+                else if (tiltAngle < defaultTiltAngle) tiltAngle++;
+            }
         }
         // Let the application process the frame (detection, drawing, etc.)
         cv::Mat processed = process(rawFrame);

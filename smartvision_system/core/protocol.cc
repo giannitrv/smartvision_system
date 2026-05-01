@@ -26,6 +26,11 @@ void parseSetGimbalCmd(const std::vector<uint8_t> &command, uint8_t *panAngle, u
     *reset = command[3];
 }
 
+void parseCameraControlCmd(const std::vector<uint8_t> &command, uint8_t *cameraControl, bool *enableOsd) {
+    *cameraControl = command[1];
+    *enableOsd = (command[2] > 0);
+}
+
 void parseTargetTrackingCmd(const std::vector<uint8_t> &command, int *targetX, int *targetY) {
     *targetX = command[1];
     *targetY = command[2];

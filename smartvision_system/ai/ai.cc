@@ -125,7 +125,7 @@ cv::Point AI::process(cv::Mat &frame, int target_id, float *trackedSize) {
         int w = (int)tlwh[2];
         int h = (int)tlwh[3];
 
-        cv::Scalar s = tracker.get_color(track_id);
+        cv::Scalar s = tracker.get_color(output_stracks[i].class_label);
         unsigned int color = 0xFF000000 | ((int)s[2] << 16) | ((int)s[1] << 8) | ((int)s[0]);
         int thickness = 2;
 

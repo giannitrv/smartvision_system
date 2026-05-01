@@ -10,5 +10,12 @@
     "pan_kd": 0.5,
     "tilt_kp": 14.0,
     "tilt_ki": 0.0,
-    "tilt_kd": 0.3
+    "tilt_kd": 0.3,
+    "auto_return_timeout_ms": 3000,
+    "osd_enabled": true,
+    "osd_color": [0, 255, 0],
+    "osd_thickness": 1,
+    "osd_scale": 1.0,
+    "osd_pos_x": 10,
+    "osd_pos_y": 30
 }

@@ -63,6 +63,7 @@ private:
     int textFont;
     int textThickness;
     int textSize;
+    uint8_t cameraControl;
     uint8_t defaultPanAngle;
     uint8_t defaultTiltAngle;
     uint8_t panAngle;
@@ -74,6 +75,13 @@ private:
     bool autoZoom;
     float refTargetSize;
     static constexpr float zoomAlpha = 0.05f;
+    bool osdEnabled;
+    float osdScale;
+    int osdPosX;
+    int osdPosY;
+    int autoReturnTimeoutMs;
+    std::chrono::milliseconds lastTrackTime;
+    bool isManualGimbalMove;
 };
 
 #endif // SMARTVISION_H

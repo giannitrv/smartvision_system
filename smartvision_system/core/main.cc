@@ -26,12 +26,7 @@ static void need_data(GstElement *appsrc, guint unused) {
     memcpy(map.data, frame.data, size);
     gst_buffer_unmap(buffer, &map);
 
-    guint64 *frame_count = (guint64 *)g_object_get_data(G_OBJECT(appsrc), "frame-count");
-    if (frame_count) {
-        GST_BUFFER_PTS(buffer) = (*frame_count) * frame_duration;
-        GST_BUFFER_DURATION(buffer) = frame_duration;
-        (*frame_count)++;
-    }
+    GST_BUFFER_DURATION(buffer) = frame_duration;
 
     GstFlowReturn ret;
     g_signal_emit_by_name(appsrc, "push-buffer", buffer, &ret);
@@ -51,8 +46,8 @@ static void media_configure(GstRTSPMediaFactory *factory, GstRTSPMedia *media,
     /* get our appsrc, we named it 'mysrc' with the name property */
     appsrc = gst_bin_get_by_name_recurse_up(GST_BIN(element), "source");
 
-    /* this instructs appsrc that we will be dealing with timed buffer */
-    gst_util_set_object_arg(G_OBJECT(appsrc), "format", "time");
+    /* this instructs appsrc that we will be dealing with timed buffer and auto-timestamping */
+    g_object_set(G_OBJECT(appsrc), "format", GST_FORMAT_TIME, "do-timestamp", TRUE, NULL);
     /* configure the caps of the video */
     g_object_set(G_OBJECT(appsrc), "caps",
                 gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING,
@@ -61,9 +56,6 @@ static void media_configure(GstRTSPMediaFactory *factory, GstRTSPMedia *media,
                                     "framerate", GST_TYPE_FRACTION, smartvision.getFps(),
                                     1, NULL),
                 NULL);
-
-    guint64 *frame_count = g_new0(guint64, 1);
-    g_object_set_data_full(G_OBJECT(appsrc), "frame-count", frame_count, (GDestroyNotify)g_free);
 
     /* install the callback that will be called when a buffer is needed */
     g_signal_connect(appsrc, "need-data", (GCallback)need_data, NULL);
