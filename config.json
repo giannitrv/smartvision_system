@@ -5,10 +5,10 @@
     "model_path": "./models/yolov8n.rknn",
     "pan_angle": 90,
     "tilt_angle": 90,
-    "pan_kp": 12.0,
+    "pan_kp": 21.0,
     "pan_ki": 0.0,
     "pan_kd": 0.5,
-    "tilt_kp": 7.0,
+    "tilt_kp": 14.0,
     "tilt_ki": 0.0,
     "tilt_kd": 0.3
 }
