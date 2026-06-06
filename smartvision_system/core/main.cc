@@ -4,6 +4,7 @@
 #include <gst/gst.h>
 #include <gst/rtsp-server/rtsp-server.h>
 #include <glib-unix.h>
+#include <filesystem>
 
 static SmartVision smartvision("config.json");
 const GstClockTime frame_duration = GST_SECOND / static_cast<GstClockTime>(smartvision.getFps());
@@ -78,6 +79,9 @@ int main(int argc, char *argv[]) {
 
     Broadcaster broadcaster;
     CommandServer command_server(smartvision);
+
+    // Create snapshots directory if it doesn't exist
+    std::filesystem::create_directories("./snapshots");
 
     smartvision.start();
     broadcaster.run();

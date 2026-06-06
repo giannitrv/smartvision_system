@@ -20,41 +20,37 @@ SmartVision::SmartVision(const std::string &configPath)
     const int addr = 0x40;
     // --- Default values ---
     std::string modelPath = "./models/yolov8n.rknn";
-    panAngle  = 100;
-    tiltAngle = 90;
     float panKp = 12.0f, panKi = 0.0f, panKd = 0.5f;
     float tiltKp = 7.0f, tiltKi = 0.0f, tiltKd = 0.3f;
-
+    panAngle = 100;
+    tiltAngle = 90;
+    osdEnabled = true;
+    osdScale = 1.0;
+    osdPosX = 10;
+    osdPosY = 30;
+    textColor = cv::Scalar(0, 255, 0);
     // --- Load config from JSON ---
     loadConfig(configPath, &modelPath, &panKp, &panKi, &panKd, &tiltKp, &tiltKi, &tiltKd);
 
-    defaultPanAngle  = panAngle;
+    defaultPanAngle = panAngle;
     defaultTiltAngle = tiltAngle;
     zoomFactor = 1.0;
     fpsCounter = 0;
-    // Init text variables
-    osdEnabled    = true;
-    osdScale      = 1.0;
-    osdPosX       = 10;
-    osdPosY       = 30;
-    textColor     = cv::Scalar(0, 255, 0);
-    textFont      = cv::FONT_HERSHEY_SIMPLEX;
+    textFont = cv::FONT_HERSHEY_SIMPLEX;
     textThickness = 1;
-    textSize      = 1;
+    textSize = 1;
     autoReturnTimeoutMs = 3000;
     isManualGimbalMove = false;
     lastTrackTime = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::high_resolution_clock::now().time_since_epoch());
-    // Init pan tilt angles
-    this->panAngle  = defaultPanAngle;
+    this->panAngle = defaultPanAngle;
     this->tiltAngle = defaultTiltAngle;
     // Open camera
     cap.open(0, cv::CAP_V4L2);
     cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'));
-    cap.set(cv::CAP_PROP_FRAME_WIDTH,  width);
+    cap.set(cv::CAP_PROP_FRAME_WIDTH, width);
     cap.set(cv::CAP_PROP_FRAME_HEIGHT, height);
     cap.set(cv::CAP_PROP_FPS, fps);
-
     if (!cap.isOpened()) {
         std::cerr << "[SmartVision] ERROR: Could not open camera.\n";
         return;
@@ -65,11 +61,11 @@ SmartVision::SmartVision(const std::string &configPath)
     panTilt = new PanTilt(device, addr);
     panTilt->update(defaultPanAngle, defaultTiltAngle);
     // Init PID
-    panPid  = new PID(panKp,  panKi,  panKd);
+    panPid = new PID(panKp, panKi, panKd);
     tiltPid = new PID(tiltKp, tiltKi, tiltKd);
     // Print camera info
     std::cout << "[SmartVision] Camera opened: "
-              << cap.get(cv::CAP_PROP_FRAME_WIDTH)  << "x"
+              << cap.get(cv::CAP_PROP_FRAME_WIDTH) << "x"
               << cap.get(cv::CAP_PROP_FRAME_HEIGHT) << " @ "
               << cap.get(cv::CAP_PROP_FPS) << " fps\n";
 }
@@ -140,6 +136,21 @@ void SmartVision::parseCommand(const std::vector<uint8_t> &command) {
             break;
         case CAMERA_CONTROL_CMD_ID:
             parseCameraControlCmd(command, &cameraControl, &osdEnabled);
+            if (cameraControl == 1) {
+                time_t now = time(0);
+                tm *ltm = localtime(&now);
+                char buffer[64];
+                sprintf(buffer, "./snapshots/%d_%02d_%02d-%02d:%02d:%02d.jpg",
+                    ltm->tm_year + 1900,
+                    ltm->tm_mon + 1,
+                    ltm->tm_mday,
+                    ltm->tm_hour,
+                    ltm->tm_min,
+                    ltm->tm_sec
+                );
+                bool ret = cv::imwrite(buffer, latestFrame);
+                std::cout << "[SmartVision] Snapshot saved to " << buffer << ". Ret: " << ret << std::endl;
+            }
             break;
         case TARGET_TRACKING_CMD_ID:
             parseTargetTrackingCmd(command, &targetX, &targetY);
