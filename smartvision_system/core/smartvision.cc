@@ -1,6 +1,7 @@
 #include <ctime>
 #include <fstream>
 #include <iostream>
+#include <filesystem>
 #include <nlohmann/json.hpp>
 #include "smartvision.h"
 #include "protocol.h"
@@ -63,6 +64,8 @@ SmartVision::SmartVision(const std::string &configPath)
     // Init PID
     panPid = new PID(panKp, panKi, panKd);
     tiltPid = new PID(tiltKp, tiltKi, tiltKd);
+    // Init video recorder
+    recorder = new VideoRecorder();
     // Print camera info
     std::cout << "[SmartVision] Camera opened: "
               << cap.get(cv::CAP_PROP_FRAME_WIDTH) << "x"
@@ -72,11 +75,13 @@ SmartVision::SmartVision(const std::string &configPath)
 
 SmartVision::~SmartVision() {
     panTilt->update(defaultPanAngle, defaultTiltAngle);
+    recorder->stopRecording();
     stop();
     delete ai;
     delete panTilt;
     delete panPid;
     delete tiltPid;
+    delete recorder;
     std::cout << "[SmartVision] SmartVision stopped.\n";
 }
 
@@ -112,7 +117,7 @@ cv::Mat SmartVision::getLatestFrame(void) {
 
 VisionMetadata SmartVision::getMetadata(void) {
     std::lock_guard<std::mutex> lock(frameMutex);
-    return {zoomFactor, panAngle, tiltAngle};
+    return {zoomFactor, panAngle, tiltAngle, autoZoom, recorder->isRecording()};
 }
 
 void SmartVision::parseCommand(const std::vector<uint8_t> &command) {
@@ -137,19 +142,13 @@ void SmartVision::parseCommand(const std::vector<uint8_t> &command) {
         case CAMERA_CONTROL_CMD_ID:
             parseCameraControlCmd(command, &cameraControl, &osdEnabled);
             if (cameraControl == 1) {
-                time_t now = time(0);
-                tm *ltm = localtime(&now);
-                char buffer[64];
-                sprintf(buffer, "./snapshots/%d_%02d_%02d-%02d:%02d:%02d.jpg",
-                    ltm->tm_year + 1900,
-                    ltm->tm_mon + 1,
-                    ltm->tm_mday,
-                    ltm->tm_hour,
-                    ltm->tm_min,
-                    ltm->tm_sec
-                );
-                bool ret = cv::imwrite(buffer, latestFrame);
-                std::cout << "[SmartVision] Snapshot saved to " << buffer << ". Ret: " << ret << std::endl;
+                saveSnapshot();
+            } else if (cameraControl == 2) {
+                if (recorder->isRecording()) {
+                    recorder->stopRecording();
+                } else {
+                    recorder->startRecording(width, height, fps);
+                }
             }
             break;
         case TARGET_TRACKING_CMD_ID:
@@ -279,6 +278,10 @@ void SmartVision::captureLoop(void) {
         // Update last frame
         std::lock_guard<std::mutex> lock(frameMutex);
         latestFrame = processed.clone();
+        // Push to video recorder
+        if (recorder->isRecording()) {
+            recorder->pushFrame(processed, currentFps);
+        }
     }
     cap.release();
 }
@@ -360,14 +363,33 @@ void SmartVision::trackTarget(cv::Point targetCenter) {
 }
 
 void SmartVision::zoomTracking(float currSize) {
+    float targetZoom;
+
     if (refTargetSize < 0.0f) {
         // First valid frame after target selection: capture reference size
         refTargetSize = currSize;
         return;
     }
-    if (currSize <= 0.0f) return;
+    if (currSize <= 0.0f)
+        return;
 
-    float targetZoom = zoomFactor * (refTargetSize / currSize);
+    targetZoom = zoomFactor * (refTargetSize / currSize);
     targetZoom = std::clamp(targetZoom, 1.0f, 5.0f);
     zoomFactor += zoomAlpha * (targetZoom - zoomFactor);
+}
+
+void SmartVision::saveSnapshot(void) {
+    time_t now = time(0);
+    tm *ltm = localtime(&now);
+    char buffer[64];
+
+    sprintf(buffer, "./snapshots/%d_%02d_%02d-%02d:%02d:%02d.jpg",
+        ltm->tm_year + 1900,
+        ltm->tm_mon + 1,
+        ltm->tm_mday,
+        ltm->tm_hour,
+        ltm->tm_min,
+        ltm->tm_sec
+    );
+    cv::imwrite(buffer, latestFrame);
 }

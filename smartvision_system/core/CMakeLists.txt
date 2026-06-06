@@ -6,6 +6,7 @@ add_executable(smartvision
     broadcaster.cc
     command_server.cc
     protocol.cc
+    videorecorder.cc
 )
 
 # Set RPATH so the executable can find shared libraries in the 'lib' folder

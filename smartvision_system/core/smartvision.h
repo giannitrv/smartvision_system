@@ -7,15 +7,19 @@
 #include <chrono>
 #include <string>
 #include <vector>
+#include <mutex>
+#include <gst/gst.h>
 #include "ai.h"
 #include "pantilt.h"
 #include "PID.h"
+#include "videorecorder.h"
 
 struct VisionMetadata {
     float zoom;
     uint8_t pan;
     uint8_t tilt;
     bool autoZoom;
+    bool recording;
 };
 
 class SmartVision {
@@ -42,10 +46,12 @@ private:
     void captureLoop(void);
     cv::Mat applyZoom(cv::Mat frame);
     void trackTarget(cv::Point targetCenter);
+    void saveSnapshot(void);
     AI *ai;
     PanTilt *panTilt;
     PID *panPid;
     PID *tiltPid;
+    VideoRecorder *recorder;
     cv::Mat latestFrame;
     std::mutex frameMutex;
     cv::VideoCapture cap;
