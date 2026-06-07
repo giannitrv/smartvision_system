@@ -1,13 +1,13 @@
 #include "protocol.h"
 
-void parseSetZoomCmd(const std::vector<uint8_t> &command, float *zoomFactor) {
+void parseSetZoomCmd(const std::vector<uint8_t> &command, float *zoomFactor, float maxZoomFactor) {
     float desiredZoom;
 
     desiredZoom = command[1] + command[2] / 10.0f;
     if (desiredZoom < 1.0f) {
         desiredZoom = 1.0f;
-    } else if (desiredZoom > 5.0f) {
-        desiredZoom = 5.0f;
+    } else if (desiredZoom > maxZoomFactor) {
+        desiredZoom = maxZoomFactor;
     }
     *zoomFactor = desiredZoom;
 }

@@ -13,7 +13,7 @@ typedef enum {
     TRACKING_MODE_CMD_ID = 0x06,
 } eCommands_t;
 
-void parseSetZoomCmd(const std::vector<uint8_t> &command, float *zoomFactor);
+void parseSetZoomCmd(const std::vector<uint8_t> &command, float *zoomFactor, float maxZoomFactor);
 void parseSetGimbalCmd(const std::vector<uint8_t> &command, uint8_t *panAngle, uint8_t *tiltAngle, uint8_t *reset);
 void parseCameraControlCmd(const std::vector<uint8_t> &command, uint8_t *cameraControl, bool *enableOsd);
 void parseTargetTrackingCmd(const std::vector<uint8_t> &command, int *targetX, int *targetY);

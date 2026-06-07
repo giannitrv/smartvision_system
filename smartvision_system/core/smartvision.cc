@@ -6,7 +6,6 @@
 #include "smartvision.h"
 #include "protocol.h"
 #include "image_utils.h"
-#include "PID.h"
 
 using json = nlohmann::json;
 
@@ -117,7 +116,7 @@ cv::Mat SmartVision::getLatestFrame(void) {
 
 VisionMetadata SmartVision::getMetadata(void) {
     std::lock_guard<std::mutex> lock(frameMutex);
-    return {zoomFactor, panAngle, tiltAngle, autoZoom, recorder->isRecording()};
+    return {zoomFactor, panAngle, tiltAngle, autoZoom, osdEnabled, recorder->isRecording()};
 }
 
 void SmartVision::parseCommand(const std::vector<uint8_t> &command) {
@@ -125,7 +124,7 @@ void SmartVision::parseCommand(const std::vector<uint8_t> &command) {
 
     switch (command[0]) {
         case SET_ZOOM_CMD_ID:
-            parseSetZoomCmd(command, &zoomFactor);
+            parseSetZoomCmd(command, &zoomFactor, maxZoomFactor);
             break;
         case SET_GIMBAL_CMD_ID:
             parseSetGimbalCmd(command, &panAngle, &tiltAngle, &reset);
@@ -149,6 +148,8 @@ void SmartVision::parseCommand(const std::vector<uint8_t> &command) {
                 } else {
                     recorder->startRecording(width, height, fps);
                 }
+            } else {
+                // Unknown camera control command
             }
             break;
         case TARGET_TRACKING_CMD_ID:
@@ -180,6 +181,7 @@ void SmartVision::loadConfig(const std::string &configPath, std::string *modelPa
             if (j.contains("width"))      width      = j["width"];
             if (j.contains("height"))     height     = j["height"];
             if (j.contains("fps"))        fps        = j["fps"];
+            if (j.contains("max_zoom_factor")) maxZoomFactor  = j["max_zoom_factor"];
             if (j.contains("model_path")) *modelPath = j["model_path"].get<std::string>();
             if (j.contains("pan_angle"))  panAngle   = j["pan_angle"];
             if (j.contains("tilt_angle")) tiltAngle  = j["tilt_angle"];
@@ -227,7 +229,6 @@ cv::Mat SmartVision::process(cv::Mat &frame) {
 
 void SmartVision::captureLoop(void) {
     cv::Mat rawFrame;
-    std::chrono::milliseconds currTime;
     cv::Point targetCenter;
     int error_x = 0;
     int error_y = 0;
@@ -235,41 +236,49 @@ void SmartVision::captureLoop(void) {
     double pid_y = 0;
     int newPan = 0;
     int newTilt = 0;
+    float trackedSize;
+    std::chrono::milliseconds currTime;
 
     while (running) {
-        fpsCounter++;
         currTime = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::high_resolution_clock::now().time_since_epoch());
-        if (currTime - fpsStart > std::chrono::seconds(2)) {
-            currentFps = (fpsCounter * 1000) / (currTime - fpsStart).count();
-            fpsStart = currTime;
-            fpsCounter = 0;
-        }
-        cap >> rawFrame;
+        // Update FPS
+        updateFps(currTime);
+        // Read frame
+        cap.read(rawFrame);
         if (rawFrame.empty()) {
             std::cerr << "[SmartVision] WARNING: Empty frame captured, skipping.\n";
             continue;
         }
         rawFrame = applyZoom(rawFrame);
-        float trackedSize = -1.0f;
+        trackedSize = -1.0f;
         targetCenter = ai->process(rawFrame, targetTrackingEnabled ? targetId : -1,
                                    targetTrackingEnabled ? &trackedSize : nullptr);
         // Auto-zoom: lock to bbox size captured at selection time
-        if (targetTrackingEnabled && trackedSize > 0.0f && autoZoom) {
+        if ((targetTrackingEnabled) && (trackedSize > 0.0f) && (autoZoom)) {
             zoomTracking(trackedSize);
         }
-        // Track target
-        if (targetTrackingEnabled && targetCenter.x != -1) {
+        // Track tracking
+        if ((targetTrackingEnabled) && (targetCenter.x != -1)) {
+            // Target is tracked
             lastTrackTime = currTime;
             trackTarget(targetCenter);
-        } else if (!isManualGimbalMove) {
-            if (autoReturnTimeoutMs > 0 && (currTime - lastTrackTime).count() > autoReturnTimeoutMs) {
-                if (panAngle > defaultPanAngle) panAngle--;
-                else if (panAngle < defaultPanAngle) panAngle++;
-                
-                if (tiltAngle > defaultTiltAngle) tiltAngle--;
-                else if (tiltAngle < defaultTiltAngle) tiltAngle++;
+        } else if (isManualGimbalMove == false) {
+            // Return to zero when target is lost for more than autoReturnTimeoutMs
+            if ((autoReturnTimeoutMs > 0) && ((currTime - lastTrackTime).count() > autoReturnTimeoutMs)) {
+                if (panAngle > defaultPanAngle) {
+                    panAngle--;
+                } else if (panAngle < defaultPanAngle) {
+                    panAngle++;
+                }
+                if (tiltAngle > defaultTiltAngle) {
+                    tiltAngle--;
+                } else if (tiltAngle < defaultTiltAngle) {
+                    tiltAngle++;
+                }
             }
+        } else {
+            // No tracking and manual gimbal mode: do nothing
         }
         // Let the application process the frame (detection, drawing, etc.)
         cv::Mat processed = process(rawFrame);
@@ -284,6 +293,15 @@ void SmartVision::captureLoop(void) {
         }
     }
     cap.release();
+}
+
+void SmartVision::updateFps(std::chrono::milliseconds currTime) {
+    fpsCounter++;
+    if ((currTime - fpsStart) > std::chrono::seconds(2)) {
+        currentFps = (fpsCounter * 1000) / (currTime - fpsStart).count();
+        fpsStart = currTime;
+        fpsCounter = 0;
+    }
 }
 
 cv::Mat SmartVision::applyZoom(cv::Mat frame) {
@@ -353,7 +371,11 @@ void SmartVision::trackTarget(cv::Point targetCenter) {
     if (std::abs(normY) < 0.05) {
         normY = 0.0;
     }
-    dtMs = currentFps > 0 ? 1000.0 / currentFps : 33.3; // Default to ~30fps if 0
+    if (currentFps > 0) {
+        dtMs = 1000.0 / currentFps;
+    } else {
+        dtMs = 33.3;
+    }
     pidX = panPid->calculate(normX, dtMs);
     pidY = tiltPid->calculate(normY, dtMs);
     newPan = panAngle - (int)pidX;
@@ -374,7 +396,7 @@ void SmartVision::zoomTracking(float currSize) {
         return;
 
     targetZoom = zoomFactor * (refTargetSize / currSize);
-    targetZoom = std::clamp(targetZoom, 1.0f, 5.0f);
+    targetZoom = std::clamp(targetZoom, 1.0f, maxZoomFactor);
     zoomFactor += zoomAlpha * (targetZoom - zoomFactor);
 }
 

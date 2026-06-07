@@ -19,6 +19,7 @@ struct VisionMetadata {
     uint8_t pan;
     uint8_t tilt;
     bool autoZoom;
+    bool osdEnabled;
     bool recording;
 };
 
@@ -44,6 +45,7 @@ private:
     cv::Mat process(cv::Mat &frame);
     void zoomTracking(float currSize);
     void captureLoop(void);
+    void updateFps(std::chrono::milliseconds currTime);
     cv::Mat applyZoom(cv::Mat frame);
     void trackTarget(cv::Point targetCenter);
     void saveSnapshot(void);
@@ -58,6 +60,7 @@ private:
     int width;
     int height;
     int fps;
+    float maxZoomFactor;
     float zoomFactor;
     int currentFps;
     int fpsCounter;

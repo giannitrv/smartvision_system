@@ -108,6 +108,7 @@ void CommandServer::telemetryLoop() {
         payload["pan"]  = meta.pan;
         payload["tilt"] = meta.tilt;
         payload["autoZoom"] = meta.autoZoom;
+        payload["osdEnabled"] = meta.osdEnabled;
         payload["recording"] = meta.recording;
 
         std::string msg = payload.dump();
