@@ -113,3 +113,9 @@ gst_rtsp_media_factory_set_launch(
 );
 ```
 *(If your camera only outputs raw YUV formats, you may need to adjust the V4L2 opening parameters in `smartvision.cc`).*
+
+---
+
+## License
+
+This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0). See the [LICENSE](LICENSE) file for the full text.
