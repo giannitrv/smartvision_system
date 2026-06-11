@@ -3,6 +3,7 @@
 
 #include <atomic>
 #include <thread>
+#include <string>
 #include <sys/socket.h>
 
 class Broadcaster {
@@ -17,6 +18,7 @@ private:
     std::atomic<bool> running{false};
     char message[100];
     int socketFd;
+    std::string broadcastIp;
 };
 
 #endif // BROADCASTER_H
