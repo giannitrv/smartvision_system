@@ -14,11 +14,15 @@ const uint8_t SmartVision::MAX_PAN_ANGLE = 150;
 const uint8_t SmartVision::MIN_TILT_ANGLE = 30;
 const uint8_t SmartVision::MAX_TILT_ANGLE = 150;
 
-SmartVision::SmartVision(const std::string &configPath)
-    : width(1280), height(720), fps(30), refTargetSize(-1.0f) {
+SmartVision::SmartVision(const std::string &configPath) {
     const char* device = "/dev/i2c-8";
     const int addr = 0x40;
     // --- Default values ---
+    width = 1280;
+    height = 720;
+    fps = 30;
+    refTargetSize = -1.0f;
+    maxZoomFactor = 5.0f;
     std::string modelPath = "./models/yolov8n.rknn";
     float panKp = 12.0f, panKi = 0.0f, panKd = 0.5f;
     float tiltKp = 7.0f, tiltKi = 0.0f, tiltKd = 0.3f;
