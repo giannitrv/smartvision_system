@@ -4,6 +4,8 @@
     "fps": 30,
     "max_zoom_factor": 5.0,
     "model_path": "./models/yolov8n.rknn",
+    "i2c_device": "/dev/i2c-8",
+    "i2c_addr": 64,
     "pan_angle": 90,
     "tilt_angle": 90,
     "pan_kp": 21.0,

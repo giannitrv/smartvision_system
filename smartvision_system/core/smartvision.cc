@@ -15,26 +15,29 @@ const uint8_t SmartVision::MIN_TILT_ANGLE = 30;
 const uint8_t SmartVision::MAX_TILT_ANGLE = 150;
 
 SmartVision::SmartVision(const std::string &configPath) {
-    const char* device = "/dev/i2c-8";
-    const int addr = 0x40;
-    // --- Default values ---
+    // --- Default parameters ---
+    s_Parameters_t parameters;
+    parameters.modelPath = "./models/yolov8n.rknn";
+    parameters.i2cDevice = "/dev/i2c-8";
+    parameters.i2cAddr = 0x40;
+    parameters.panKp = 12.0f;
+    parameters.panKi = 0.0f;
+    parameters.panKd = 0.5f;
+    parameters.tiltKp = 7.0f;
+    parameters.tiltKi = 0.0f;
+    parameters.tiltKd = 0.3f;
     width = 1280;
     height = 720;
     fps = 30;
     refTargetSize = -1.0f;
     maxZoomFactor = 5.0f;
-    std::string modelPath = "./models/yolov8n.rknn";
-    float panKp = 12.0f, panKi = 0.0f, panKd = 0.5f;
-    float tiltKp = 7.0f, tiltKi = 0.0f, tiltKd = 0.3f;
-    panAngle = 100;
-    tiltAngle = 90;
     osdEnabled = true;
     osdScale = 1.0;
     osdPosX = 10;
     osdPosY = 30;
     textColor = cv::Scalar(0, 255, 0);
     // --- Load config from JSON ---
-    loadConfig(configPath, &modelPath, &panKp, &panKi, &panKd, &tiltKp, &tiltKi, &tiltKd);
+    loadConfig(configPath, &parameters);
 
     defaultPanAngle = panAngle;
     defaultTiltAngle = tiltAngle;
@@ -60,13 +63,13 @@ SmartVision::SmartVision(const std::string &configPath) {
         return;
     }
     // Init ai model
-    ai = new AI(modelPath.c_str());
+    ai = new AI(parameters.modelPath.c_str());
     // Init pan tilt
-    panTilt = new PanTilt(device, addr);
+    panTilt = new PanTilt(parameters.i2cDevice.c_str(), parameters.i2cAddr);
     panTilt->update(defaultPanAngle, defaultTiltAngle);
     // Init PID
-    panPid = new PID(panKp, panKi, panKd);
-    tiltPid = new PID(tiltKp, tiltKi, tiltKd);
+    panPid = new PID(parameters.panKp, parameters.panKi, parameters.panKd);
+    tiltPid = new PID(parameters.tiltKp, parameters.tiltKi, parameters.tiltKd);
     // Init video recorder
     recorder = new VideoRecorder();
     // Print camera info
@@ -177,30 +180,32 @@ void SmartVision::parseCommand(const std::vector<uint8_t> &command) {
     }
 }
 
-void SmartVision::loadConfig(const std::string &configPath, std::string *modelPath, float *panKp, float *panKi, float *panKd, float *tiltKp, float *tiltKi, float *tiltKd) {
+void SmartVision::loadConfig(const std::string &configPath, s_Parameters_t *parameters) {
     std::ifstream f(configPath);
     if (f.is_open()) {
         try {
             json j = json::parse(f);
-            if (j.contains("width"))      width      = j["width"];
-            if (j.contains("height"))     height     = j["height"];
-            if (j.contains("fps"))        fps        = j["fps"];
-            if (j.contains("max_zoom_factor")) maxZoomFactor  = j["max_zoom_factor"];
-            if (j.contains("model_path")) *modelPath = j["model_path"].get<std::string>();
-            if (j.contains("pan_angle"))  panAngle   = j["pan_angle"];
-            if (j.contains("tilt_angle")) tiltAngle  = j["tilt_angle"];
-            if (j.contains("pan_kp"))     *panKp      = j["pan_kp"];
-            if (j.contains("pan_ki"))     *panKi      = j["pan_ki"];
-            if (j.contains("pan_kd"))     *panKd      = j["pan_kd"];
-            if (j.contains("tilt_kp"))    *tiltKp     = j["tilt_kp"];
-            if (j.contains("tilt_ki"))    *tiltKi     = j["tilt_ki"];
-            if (j.contains("tilt_kd"))    *tiltKd     = j["tilt_kd"];
+            if (j.contains("width"))             width          = j["width"];
+            if (j.contains("height"))            height         = j["height"];
+            if (j.contains("fps"))               fps            = j["fps"];
+            if (j.contains("max_zoom_factor"))   maxZoomFactor  = j["max_zoom_factor"];
+            if (j.contains("model_path"))        parameters->modelPath     = j["model_path"].get<std::string>();
+            if (j.contains("i2c_device"))        parameters->i2cDevice     = j["i2c_device"].get<std::string>();
+            if (j.contains("i2c_addr"))          parameters->i2cAddr       = j["i2c_addr"];
+            if (j.contains("pan_angle"))         panAngle       = j["pan_angle"];
+            if (j.contains("tilt_angle"))        tiltAngle      = j["tilt_angle"];
+            if (j.contains("pan_kp"))            parameters->panKp         = j["pan_kp"];
+            if (j.contains("pan_ki"))            parameters->panKi         = j["pan_ki"];
+            if (j.contains("pan_kd"))            parameters->panKd         = j["pan_kd"];
+            if (j.contains("tilt_kp"))           parameters->tiltKp        = j["tilt_kp"];
+            if (j.contains("tilt_ki"))           parameters->tiltKi        = j["tilt_ki"];
+            if (j.contains("tilt_kd"))           parameters->tiltKd        = j["tilt_kd"];
             if (j.contains("auto_return_timeout_ms")) autoReturnTimeoutMs = j["auto_return_timeout_ms"];
-            if (j.contains("osd_enabled"))            osdEnabled = j["osd_enabled"];
-            if (j.contains("osd_scale"))              osdScale = j["osd_scale"];
-            if (j.contains("osd_thickness"))          textThickness = j["osd_thickness"];
-            if (j.contains("osd_pos_x"))              osdPosX = j["osd_pos_x"];
-            if (j.contains("osd_pos_y"))              osdPosY = j["osd_pos_y"];
+            if (j.contains("osd_enabled"))       osdEnabled     = j["osd_enabled"];
+            if (j.contains("osd_scale"))         osdScale       = j["osd_scale"];
+            if (j.contains("osd_thickness"))     textThickness  = j["osd_thickness"];
+            if (j.contains("osd_pos_x"))         osdPosX        = j["osd_pos_x"];
+            if (j.contains("osd_pos_y"))         osdPosY        = j["osd_pos_y"];
             if (j.contains("osd_color") && j["osd_color"].is_array() && j["osd_color"].size() == 3) {
                 textColor = cv::Scalar(j["osd_color"][0], j["osd_color"][1], j["osd_color"][2]);
             }

@@ -37,11 +37,22 @@ public:
     void parseCommand(const std::vector<uint8_t> &command);
 
 private:
+    typedef struct {
+        std::string modelPath;
+        std::string i2cDevice;
+        int i2cAddr;
+        float panKp;
+        float panKi;
+        float panKd;
+        float tiltKp;
+        float tiltKi;
+        float tiltKd;
+    } s_Parameters_t;
     static const uint8_t MIN_PAN_ANGLE;
     static const uint8_t MAX_PAN_ANGLE;
     static const uint8_t MIN_TILT_ANGLE;
     static const uint8_t MAX_TILT_ANGLE;
-    void loadConfig(const std::string &configPath, std::string *modelPath, float *panKp, float *panKi, float *panKd, float *tiltKp, float *tiltKi, float *tiltKd);
+    void loadConfig(const std::string &configPath, s_Parameters_t *parameters);
     cv::Mat process(cv::Mat &frame);
     void zoomTracking(float currSize);
     void captureLoop(void);
