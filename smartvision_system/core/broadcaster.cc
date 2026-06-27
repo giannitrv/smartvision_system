@@ -114,7 +114,7 @@ void Broadcaster::broadcastLoop() {
     memset(&broadcastAddr, 0, sizeof(broadcastAddr));
     broadcastAddr.sin_family = AF_INET;
     broadcastAddr.sin_port = htons(6000);
-    
+
     if (inet_pton(AF_INET, broadcastIp.c_str(), &broadcastAddr.sin_addr) <= 0) {
         std::cerr << "[Broadcaster] ERROR: Invalid broadcast IP " << broadcastIp << ", falling back to limited broadcast.\n";
         broadcastAddr.sin_addr.s_addr = INADDR_BROADCAST;

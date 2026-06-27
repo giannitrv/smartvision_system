@@ -107,10 +107,14 @@ void SmartVision::start(void) {
     fpsStart = std::chrono::duration_cast<std::chrono::milliseconds>(
       std::chrono::high_resolution_clock::now().time_since_epoch());
     captureThread = std::thread(&SmartVision::captureLoop, this);
+    trackingThread = std::thread(&SmartVision::trackingLoop, this);
 }
 
 void SmartVision::stop(void) {
     running = false;
+    if (trackingThread.joinable()) {
+        trackingThread.join();
+    }
     if (captureThread.joinable()) {
         captureThread.join();
     }
@@ -238,7 +242,7 @@ cv::Mat SmartVision::process(cv::Mat &frame) {
 
 void SmartVision::captureLoop(void) {
     cv::Mat rawFrame;
-    cv::Point targetCenter;
+    cv::Point currTargetCenter;
     int error_x = 0;
     int error_y = 0;
     double pid_x = 0;
@@ -261,17 +265,19 @@ void SmartVision::captureLoop(void) {
         }
         rawFrame = applyZoom(rawFrame);
         trackedSize = -1.0f;
-        targetCenter = ai->process(rawFrame, targetTrackingEnabled ? targetId : -1,
+        currTargetCenter = ai->process(rawFrame, targetTrackingEnabled ? targetId : -1,
                                    targetTrackingEnabled ? &trackedSize : nullptr);
         // Auto-zoom: lock to bbox size captured at selection time
         if ((targetTrackingEnabled) && (trackedSize > 0.0f) && (autoZoom)) {
             zoomTracking(trackedSize);
         }
         // Track tracking
-        if ((targetTrackingEnabled) && (targetCenter.x != -1)) {
+        if ((targetTrackingEnabled) && (currTargetCenter.x != -1)) {
             // Target is tracked
             lastTrackTime = currTime;
-            trackTarget(targetCenter);
+            std::lock_guard<std::mutex> lock(trackingMutex);
+            targetCenter = currTargetCenter;
+            // targetTrackingEnabled already true; refresh center atomically
         } else if (isManualGimbalMove == false) {
             // Return to zero when target is lost for more than autoReturnTimeoutMs
             if ((autoReturnTimeoutMs > 0) && ((currTime - lastTrackTime).count() > autoReturnTimeoutMs)) {
@@ -291,8 +297,6 @@ void SmartVision::captureLoop(void) {
         }
         // Let the application process the frame (detection, drawing, etc.)
         cv::Mat processed = process(rawFrame);
-        // Update pan tilt
-        panTilt->update(panAngle, tiltAngle);
         // Update last frame
         std::lock_guard<std::mutex> lock(frameMutex);
         latestFrame = processed.clone();
@@ -302,6 +306,54 @@ void SmartVision::captureLoop(void) {
         }
     }
     cap.release();
+}
+
+void SmartVision::trackingLoop(void) {
+    int errX;
+    int errY;
+    double normX;
+    double normY;
+    double dtMs;
+    double pidX;
+    double pidY;
+    int newPan;
+    int newTilt;
+    cv::Point center;
+    bool tracking;
+
+    while (running) {
+        // Snapshot shared state under lock
+        {
+            std::lock_guard<std::mutex> lock(trackingMutex);
+            center   = targetCenter;
+            tracking = targetTrackingEnabled;
+        }
+        if (tracking && center.x != -1) {
+            errX = center.x - (width / 2);
+            errY = center.y - (height / 2);
+            // Normalize error to [-1, 1] and compensate for zoom:
+            // at zoom Z the FOV is 1/Z narrower, so the same pixel offset
+            // corresponds to a proportionally smaller angular movement.
+            normX = (double)errX / (width  * zoomFactor);
+            normY = (double)errY / (height * zoomFactor);
+            // Dead zone
+            if (std::abs(normX) < 0.05) {
+                normX = 0.0;
+            }
+            if (std::abs(normY) < 0.05) {
+                normY = 0.0;
+            }
+            pidX = panPid->calculate(normX, 10.0);
+            pidY = tiltPid->calculate(normY, 10.0);
+            newPan  = panAngle - (int)pidX;
+            newTilt = tiltAngle - (int)pidY;
+            panAngle  = std::clamp<int>(newPan,  MIN_PAN_ANGLE,  MAX_PAN_ANGLE);
+            tiltAngle = std::clamp<int>(newTilt, MIN_TILT_ANGLE, MAX_TILT_ANGLE);
+        }
+        // Drive servo at 100 Hz regardless (holds last position when not tracking)
+        panTilt->update(panAngle, tiltAngle);
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
 }
 
 void SmartVision::updateFps(std::chrono::milliseconds currTime) {
@@ -353,44 +405,6 @@ cv::Mat SmartVision::applyZoom(cv::Mat frame) {
     }
 
     return zoomedFrame;
-}
-
-void SmartVision::trackTarget(cv::Point targetCenter) {
-    int errX;
-    int errY;
-    double normX;
-    double normY;
-    double dtMs;
-    double pidX;
-    double pidY;
-    int newPan;
-    int newTilt;
-
-    errX = targetCenter.x - (width / 2);
-    errY = targetCenter.y - (height / 2);
-    // Normalize error to [-1, 1] and compensate for zoom:
-    // at zoom Z the FOV is 1/Z narrower, so the same pixel offset
-    // corresponds to a proportionally smaller angular movement.
-    normX = (double)errX / (width  * zoomFactor);
-    normY = (double)errY / (height * zoomFactor);
-    // Dead zone
-    if (std::abs(normX) < 0.05) {
-        normX = 0.0;
-    }
-    if (std::abs(normY) < 0.05) {
-        normY = 0.0;
-    }
-    if (currentFps > 0) {
-        dtMs = 1000.0 / currentFps;
-    } else {
-        dtMs = 33.3;
-    }
-    pidX = panPid->calculate(normX, dtMs);
-    pidY = tiltPid->calculate(normY, dtMs);
-    newPan = panAngle - (int)pidX;
-    newTilt = tiltAngle - (int)pidY;
-    panAngle = std::clamp<int>(newPan, MIN_PAN_ANGLE, MAX_PAN_ANGLE);
-    tiltAngle = std::clamp<int>(newTilt, MIN_TILT_ANGLE, MAX_TILT_ANGLE);
 }
 
 void SmartVision::zoomTracking(float currSize) {

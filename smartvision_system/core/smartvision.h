@@ -58,7 +58,7 @@ private:
     void captureLoop(void);
     void updateFps(std::chrono::milliseconds currTime);
     cv::Mat applyZoom(cv::Mat frame);
-    void trackTarget(cv::Point targetCenter);
+    void trackingLoop(void);
     void saveSnapshot(void);
     AI *ai;
     PanTilt *panTilt;
@@ -67,7 +67,9 @@ private:
     VideoRecorder *recorder;
     cv::Mat latestFrame;
     std::mutex frameMutex;
+    std::mutex trackingMutex;
     cv::VideoCapture cap;
+    cv::Point targetCenter{-1, -1};
     int width;
     int height;
     int fps;
@@ -77,6 +79,7 @@ private:
     int fpsCounter;
     std::chrono::milliseconds fpsStart;
     std::thread captureThread;
+    std::thread trackingThread;
     std::atomic<bool> running{false};
     cv::Point textPos;
     cv::Scalar textColor;
