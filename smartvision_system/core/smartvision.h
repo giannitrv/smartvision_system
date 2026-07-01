@@ -48,10 +48,6 @@ private:
         float tiltKi;
         float tiltKd;
     } s_Parameters_t;
-    static const uint8_t MIN_PAN_ANGLE;
-    static const uint8_t MAX_PAN_ANGLE;
-    static const uint8_t MIN_TILT_ANGLE;
-    static const uint8_t MAX_TILT_ANGLE;
     void loadConfig(const std::string &configPath, s_Parameters_t *parameters);
     cv::Mat process(cv::Mat &frame);
     void zoomTracking(float currSize);
@@ -89,8 +85,13 @@ private:
     uint8_t cameraControl;
     uint8_t defaultPanAngle;
     uint8_t defaultTiltAngle;
+    uint16_t maxPanAngle;
+    uint16_t minPanAngle;
+    uint16_t maxTiltAngle;
+    uint16_t minTiltAngle;
     uint8_t panAngle;
     uint8_t tiltAngle;
+    float gimbalDeadzone;
     int targetX;
     int targetY;
     int targetId;

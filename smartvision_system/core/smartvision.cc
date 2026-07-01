@@ -9,11 +9,6 @@
 
 using json = nlohmann::json;
 
-const uint8_t SmartVision::MIN_PAN_ANGLE = 30;
-const uint8_t SmartVision::MAX_PAN_ANGLE = 150;
-const uint8_t SmartVision::MIN_TILT_ANGLE = 30;
-const uint8_t SmartVision::MAX_TILT_ANGLE = 150;
-
 SmartVision::SmartVision(const std::string &configPath) {
     // --- Default parameters ---
     s_Parameters_t parameters;
@@ -29,8 +24,13 @@ SmartVision::SmartVision(const std::string &configPath) {
     width = 1280;
     height = 720;
     fps = 30;
-    refTargetSize = -1.0f;
     maxZoomFactor = 5.0f;
+    maxPanAngle = 170;
+    minPanAngle = 10;
+    maxTiltAngle = 170;
+    minTiltAngle = 10;
+    gimbalDeadzone = 0.03f;
+    autoReturnTimeoutMs = 3000;
     osdEnabled = true;
     osdScale = 1.0;
     osdPosX = 10;
@@ -46,7 +46,7 @@ SmartVision::SmartVision(const std::string &configPath) {
     textFont = cv::FONT_HERSHEY_SIMPLEX;
     textThickness = 1;
     textSize = 1;
-    autoReturnTimeoutMs = 3000;
+    refTargetSize = -1.0f;
     isManualGimbalMove = false;
     lastTrackTime = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::high_resolution_clock::now().time_since_epoch());
@@ -144,8 +144,8 @@ void SmartVision::parseCommand(const std::vector<uint8_t> &command) {
                 tiltAngle = defaultTiltAngle;
                 isManualGimbalMove = false;
             } else {
-                panAngle = std::clamp<uint8_t>(panAngle, MIN_PAN_ANGLE, MAX_PAN_ANGLE);
-                tiltAngle = std::clamp<uint8_t>(tiltAngle, MIN_TILT_ANGLE, MAX_TILT_ANGLE);
+                panAngle = std::clamp<uint8_t>(panAngle, minPanAngle, maxPanAngle);
+                tiltAngle = std::clamp<uint8_t>(tiltAngle, minTiltAngle, maxTiltAngle);
                 isManualGimbalMove = true;
             }
             break;
@@ -189,27 +189,32 @@ void SmartVision::loadConfig(const std::string &configPath, s_Parameters_t *para
     if (f.is_open()) {
         try {
             json j = json::parse(f);
-            if (j.contains("width"))             width          = j["width"];
-            if (j.contains("height"))            height         = j["height"];
-            if (j.contains("fps"))               fps            = j["fps"];
-            if (j.contains("max_zoom_factor"))   maxZoomFactor  = j["max_zoom_factor"];
-            if (j.contains("model_path"))        parameters->modelPath     = j["model_path"].get<std::string>();
-            if (j.contains("i2c_device"))        parameters->i2cDevice     = j["i2c_device"].get<std::string>();
-            if (j.contains("i2c_addr"))          parameters->i2cAddr       = j["i2c_addr"];
-            if (j.contains("pan_angle"))         panAngle       = j["pan_angle"];
-            if (j.contains("tilt_angle"))        tiltAngle      = j["tilt_angle"];
-            if (j.contains("pan_kp"))            parameters->panKp         = j["pan_kp"];
-            if (j.contains("pan_ki"))            parameters->panKi         = j["pan_ki"];
-            if (j.contains("pan_kd"))            parameters->panKd         = j["pan_kd"];
-            if (j.contains("tilt_kp"))           parameters->tiltKp        = j["tilt_kp"];
-            if (j.contains("tilt_ki"))           parameters->tiltKi        = j["tilt_ki"];
-            if (j.contains("tilt_kd"))           parameters->tiltKd        = j["tilt_kd"];
-            if (j.contains("auto_return_timeout_ms")) autoReturnTimeoutMs = j["auto_return_timeout_ms"];
-            if (j.contains("osd_enabled"))       osdEnabled     = j["osd_enabled"];
-            if (j.contains("osd_scale"))         osdScale       = j["osd_scale"];
-            if (j.contains("osd_thickness"))     textThickness  = j["osd_thickness"];
-            if (j.contains("osd_pos_x"))         osdPosX        = j["osd_pos_x"];
-            if (j.contains("osd_pos_y"))         osdPosY        = j["osd_pos_y"];
+            if (j.contains("width"))             width                      = j["width"];
+            if (j.contains("height"))            height                     = j["height"];
+            if (j.contains("fps"))               fps                        = j["fps"];
+            if (j.contains("max_zoom_factor"))   maxZoomFactor              = j["max_zoom_factor"];
+            if (j.contains("model_path"))        parameters->modelPath      = j["model_path"].get<std::string>();
+            if (j.contains("i2c_device"))        parameters->i2cDevice      = j["i2c_device"].get<std::string>();
+            if (j.contains("i2c_addr"))          parameters->i2cAddr        = j["i2c_addr"];
+            if (j.contains("pan_max"))           maxPanAngle                = j["pan_max"];
+            if (j.contains("pan_min"))           minPanAngle                = j["pan_min"];
+            if (j.contains("tilt_max"))          maxTiltAngle               = j["tilt_max"];
+            if (j.contains("tilt_min"))          minTiltAngle               = j["tilt_min"];
+            if (j.contains("pan_base"))          panAngle                   = j["pan_base"];
+            if (j.contains("tilt_base"))         tiltAngle                  = j["tilt_base"];
+            if (j.contains("pan_kp"))            parameters->panKp          = j["pan_kp"];
+            if (j.contains("pan_ki"))            parameters->panKi          = j["pan_ki"];
+            if (j.contains("pan_kd"))            parameters->panKd          = j["pan_kd"];
+            if (j.contains("tilt_kp"))           parameters->tiltKp         = j["tilt_kp"];
+            if (j.contains("tilt_ki"))           parameters->tiltKi         = j["tilt_ki"];
+            if (j.contains("tilt_kd"))           parameters->tiltKd         = j["tilt_kd"];
+            if (j.contains("gimbal_deadzone"))   gimbalDeadzone             = j["gimbal_deadzone"];
+            if (j.contains("auto_return_to"))    autoReturnTimeoutMs        = j["auto_return_to"];
+            if (j.contains("osd_enabled"))       osdEnabled                 = j["osd_enabled"];
+            if (j.contains("osd_scale"))         osdScale                   = j["osd_scale"];
+            if (j.contains("osd_thickness"))     textThickness              = j["osd_thickness"];
+            if (j.contains("osd_pos_x"))         osdPosX                    = j["osd_pos_x"];
+            if (j.contains("osd_pos_y"))         osdPosY                    = j["osd_pos_y"];
             if (j.contains("osd_color") && j["osd_color"].is_array() && j["osd_color"].size() == 3) {
                 textColor = cv::Scalar(j["osd_color"][0], j["osd_color"][1], j["osd_color"][2]);
             }
@@ -337,18 +342,18 @@ void SmartVision::trackingLoop(void) {
             normX = (double)errX / (width  * zoomFactor);
             normY = (double)errY / (height * zoomFactor);
             // Dead zone
-            if (std::abs(normX) < 0.05) {
+            if (std::abs(normX) < gimbalDeadzone) {
                 normX = 0.0;
             }
-            if (std::abs(normY) < 0.05) {
+            if (std::abs(normY) < gimbalDeadzone) {
                 normY = 0.0;
             }
             pidX = panPid->calculate(normX, 10.0);
             pidY = tiltPid->calculate(normY, 10.0);
-            newPan  = panAngle - (int)pidX;
+            newPan = panAngle - (int)pidX;
             newTilt = tiltAngle - (int)pidY;
-            panAngle  = std::clamp<int>(newPan,  MIN_PAN_ANGLE,  MAX_PAN_ANGLE);
-            tiltAngle = std::clamp<int>(newTilt, MIN_TILT_ANGLE, MAX_TILT_ANGLE);
+            panAngle = std::clamp<int>(newPan, minPanAngle, maxPanAngle);
+            tiltAngle = std::clamp<int>(newTilt, minTiltAngle, maxTiltAngle);
         }
         // Drive servo at 100 Hz regardless (holds last position when not tracking)
         panTilt->update(panAngle, tiltAngle);
