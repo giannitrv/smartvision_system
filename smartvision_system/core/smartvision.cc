@@ -146,8 +146,8 @@ void SmartVision::parseCommand(const std::vector<uint8_t> &command) {
                 tiltAngle = defaultTiltAngle;
                 isManualGimbalMove = false;
             } else {
-                panAngle = std::clamp<uint8_t>(panAngle, minPanAngle, maxPanAngle);
-                tiltAngle = std::clamp<uint8_t>(tiltAngle, minTiltAngle, maxTiltAngle);
+                panAngle = std::clamp<int>(panAngle, minPanAngle, maxPanAngle);
+                tiltAngle = std::clamp<int>(tiltAngle, minTiltAngle, maxTiltAngle);
                 isManualGimbalMove = true;
             }
             break;

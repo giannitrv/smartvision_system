@@ -14,7 +14,7 @@ typedef enum {
 } eCommands_t;
 
 void parseSetZoomCmd(const std::vector<uint8_t> &command, float *zoomFactor, float maxZoomFactor);
-void parseSetGimbalCmd(const std::vector<uint8_t> &command, uint8_t *panAngle, uint8_t *tiltAngle, uint8_t *reset);
+void parseSetGimbalCmd(const std::vector<uint8_t> &command, int *panAngle, int *tiltAngle, uint8_t *reset);
 void parseCameraControlCmd(const std::vector<uint8_t> &command, uint8_t *cameraControl, bool *enableOsd);
 void parseTargetTrackingCmd(const std::vector<uint8_t> &command, int *targetX, int *targetY);
 void parseTrackingModeCmd(const std::vector<uint8_t> &command, bool *autoZoom);

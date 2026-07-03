@@ -16,8 +16,8 @@
 
 struct VisionMetadata {
     float zoom;
-    uint8_t pan;
-    uint8_t tilt;
+    int pan;
+    int tilt;
     bool autoZoom;
     bool osdEnabled;
     bool recording;
@@ -84,14 +84,14 @@ private:
     int textThickness;
     int textSize;
     uint8_t cameraControl;
-    uint8_t defaultPanAngle;
-    uint8_t defaultTiltAngle;
-    uint16_t maxPanAngle;
-    uint16_t minPanAngle;
-    uint16_t maxTiltAngle;
-    uint16_t minTiltAngle;
-    uint8_t panAngle;
-    uint8_t tiltAngle;
+    int defaultPanAngle;
+    int defaultTiltAngle;
+    int maxPanAngle;
+    int minPanAngle;
+    int maxTiltAngle;
+    int minTiltAngle;
+    int panAngle;
+    int tiltAngle;
     float gimbalDeadzone;
     int targetX;
     int targetY;
