@@ -1,6 +1,6 @@
 # SmartVision System
 
-SmartVision is a high-performance, C++ based smart camera application designed for Rockchip Single Board Computers (SBCs), such as the RK3576. It captures video from a V4L2 camera, runs NPU-accelerated AI object detection (YOLOv8), and automatically tracks targets using a hardware pan-tilt gimbal and digital auto-zoom.
+SmartVision is a C++ based smart camera application designed for Rockchip SBCs, in my case a RADXA 4D with a RK3576 CPU. It captures video from a V4L2 camera, runs NPU-accelerated AI object detection, and target tracking on demand and displays the result over RTSP stream via ethernet.
 
 ## Key Features
 
@@ -12,21 +12,27 @@ SmartVision is a high-performance, C++ based smart camera application designed f
 
 ---
 
+## Project Structure
+
+The project is organizied in multiple subfolders, each dedicated to a specific functionality of the smart vision system. Every folder has its own `CMakeLists.txt` file to simplify the build process.
+
+---
+
 ## Hardware Requirements
 
 * **SBC:** Rockchip-based SBC with NPU and MPP support (e.g., RK3576).
-* **Camera:** V4L2 compatible camera. *(Note: The default pipeline is optimized for 1920x1080@30fps MJPG output).*
-* **Pan/Tilt Module:** I2C-based servo driver (PCA9685). Default configuration expects the device at address `0x40` on `/dev/i2c-8`.
+* **Camera:** V4L2 compatible camera. The default pipeline is optimized for 1280x720@30fps MJPG output.
+* **Pan/Tilt Module:** I2C-based servo driver (PCA9685).
 
 ---
 
 ## Installation & Deployment
 
-Cross-compilation is recommended to keep your host environment clean. The repository includes a `build.sh` script that automates compilation using a Docker container.
+Cross-compilation is executed inside a Docker container so no packages need to be installed on the host. The application is configured to use the ethernet interface to transmit the video stream towards a host computer, setting a static IP address on your SBC is recommended.
 
 ### 1. Build and Deploy (Host Machine)
 
-Run the build script to cross-compile the project for `aarch64`. Once built, copy the executable, AI models, configuration, and dependencies list to your SBC.
+Run `build.sh` to cross-compile the project for `aarch64`. Once built, copy the executable, AI models, configuration, and dependencies list to your SBC.
 
 ```bash
 # Cross-compile the project using Docker
@@ -41,7 +47,7 @@ scp requirements.txt user@<IP_ADDRESS>:/home/user/smartvision/
 
 ### 2. Target Dependencies (SBC)
 
-Before running the application on your SBC, you must install the runtime system libraries. We've provided a `requirements.txt` file tailored for the SBC runtime.
+Before running the application on your SBC, you must install the runtime system libraries.
 
 SSH into your Rockchip SBC and run:
 
@@ -55,26 +61,7 @@ grep -v -e '^#' -e '^$' requirements.txt | xargs sudo apt install -y
 
 ## Configuration (`config.json`)
 
-The system's behavior is highly customizable via `config.json`. You can tune the camera resolution, framerate, model path, and the PID controller for the Pan/Tilt tracking.
-
-```json
-{
-    "width": 1280,
-    "height": 720,
-    "fps": 30,
-    "model_path": "./models/yolov8n.rknn",
-    "pan_angle": 90,
-    "tilt_angle": 90,
-    "pan_kp": 21.0,
-    "pan_ki": 0.0,
-    "pan_kd": 0.5,
-    "tilt_kp": 14.0,
-    "tilt_ki": 0.0,
-    "tilt_kd": 0.3
-}
-```
-
-* **PID Tuning:** If the gimbal tracks too aggressively or oscillates, lower the proportional terms (`pan_kp`, `tilt_kp`). If it tracks too slowly, increase them. The derivative terms (`_kd`) help dampen the motion.
+The system behavior is customizable via `config.json`. More information about the parameters can be found in the Smartvision System Manual.
 
 ---
 
@@ -87,32 +74,13 @@ cd /home/user/smartvision
 ./smartvision
 ```
 
-Once running, the application will initialize the camera, load the NPU model, and start the RTSP server. You should see an output similar to:
+Once running, the application will initialize the camera, load the NPU model, and start the RTSP server. You should see the output:
 
 ```text
 Stream ready at rtsp://[IP_ADDRESS]:8554/video
 ```
 
-You can view the stream locally by opening this URL in a media player like **VLC** or `ffplay`.
-
----
-
-## Technical Details: Camera Pipeline
-
-The system is configured to read an MJPG stream from the camera. Conversion from GStreamer to NV12 format is required for the Rockchip MPP hardware H.265 encoder.
-
-The internal GStreamer factory pipeline looks like this:
-```cpp
-gst_rtsp_media_factory_set_launch(
-    factory,
-    "( appsrc name=source is-live=true block=true format=time ! "
-    " videoconvert ! "
-    " video/x-raw,format=NV12 ! "
-    " mpph265enc rc-mode=vbr bps=4000000 gop=30 ! "
-    " rtph265pay name=pay0 pt=96 )"
-);
-```
-*(If your camera only outputs raw YUV formats, you may need to adjust the V4L2 opening parameters in `smartvision.cc`).*
+You can view the stream locally with the deidicated application Smartvision Client or with any media player like **VLC** or `ffplay`.
 
 ---
 
