@@ -43,11 +43,9 @@ AI::~AI() {
 cv::Point AI::process(cv::Mat &frame, int target_id, float *trackedSize) {
     int ret;
     int bg_color = 114;
-    char text[256];
     letterbox_t letter_box;
     cv::Point target_center(-1, -1);
     std::vector<Object> objects;
-    std::vector<STrack> output_stracks;
 
     // Wrap the OpenCV BGR frame directly
     src_image.width = frame.cols;
@@ -110,7 +108,7 @@ cv::Point AI::process(cv::Mat &frame, int target_id, float *trackedSize) {
         obj.prob = det_result->prop;
         objects.push_back(obj);
     }
-
+    output_stracks.clear();
     output_stracks = tracker.update(objects);
     {
         std::lock_guard<std::mutex> lock(tracksMutex);
@@ -125,26 +123,42 @@ cv::Point AI::process(cv::Mat &frame, int target_id, float *trackedSize) {
         int w = (int)tlwh[2];
         int h = (int)tlwh[3];
 
-        cv::Scalar s = tracker.get_color(output_stracks[i].class_label);
-        unsigned int color = 0xFF000000 | ((int)s[2] << 16) | ((int)s[1] << 8) | ((int)s[0]);
-        int thickness = 2;
-
         if (track_id == target_id) {
             target_center = cv::Point(x1 + w / 2, y1 + h / 2);
             if (trackedSize != nullptr) {
                 *trackedSize = std::sqrt(static_cast<float>(w * h));
             }
-            color = COLOR_RED;
-            thickness = 4;
         }
-
-        draw_rectangle(&src_image, x1, y1, w, h, color, thickness);
-
-        sprintf(text, "ID:%d", track_id);
-        draw_text(&src_image, text, x1, y1 - 20, color, 10);
     }
 
     return target_center;
+}
+
+void AI::showResults(cv::Mat &frame, int target_id) {
+    char text[256];
+    cv::Scalar s;
+    int thickness;
+
+    for (int i = 0; i < output_stracks.size(); i++) {
+        std::vector<float> tlwh = output_stracks[i].tlwh;
+        int track_id = output_stracks[i].track_id;
+        int x1 = (int)tlwh[0];
+        int y1 = (int)tlwh[1];
+        int w = (int)tlwh[2];
+        int h = (int)tlwh[3];
+
+        s = tracker.get_color(output_stracks[i].class_label);
+        thickness = 2;
+
+        if (track_id == target_id) {
+            s = cv::Scalar(0, 0, 255);
+            thickness = 4;
+        }
+        cv::rectangle(frame, cv::Point(x1, y1), cv::Point(x1 + w, y1 + h), s, thickness);
+
+        sprintf(text, "ID:%d", track_id);
+        cv::putText(frame, text, cv::Point(x1, y1 - 20), cv::FONT_HERSHEY_SIMPLEX, 0.5, s, 2);
+    }
 }
 
 int AI::getTargetIdAt(int x, int y) const {

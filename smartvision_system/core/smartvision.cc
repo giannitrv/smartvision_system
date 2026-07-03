@@ -9,6 +9,8 @@
 
 using json = nlohmann::json;
 
+const uint8_t SmartVision::INFERENCE_RATE = 2;
+
 SmartVision::SmartVision(const std::string &configPath) {
     // --- Default parameters ---
     s_Parameters_t parameters;
@@ -255,9 +257,11 @@ void SmartVision::captureLoop(void) {
     int newPan = 0;
     int newTilt = 0;
     float trackedSize;
+    int frameCount = 0;
     std::chrono::milliseconds currTime;
 
     while (running) {
+        frameCount++;
         currTime = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::high_resolution_clock::now().time_since_epoch());
         // Update FPS
@@ -268,10 +272,16 @@ void SmartVision::captureLoop(void) {
             std::cerr << "[SmartVision] WARNING: Empty frame captured, skipping.\n";
             continue;
         }
+        // Apply zoom
         rawFrame = applyZoom(rawFrame);
         trackedSize = -1.0f;
-        currTargetCenter = ai->process(rawFrame, targetTrackingEnabled ? targetId : -1,
-                                   targetTrackingEnabled ? &trackedSize : nullptr);
+        // Run inference every INFERENCE_RATE frames
+        if (frameCount % INFERENCE_RATE == 0) {
+            currTargetCenter = ai->process(rawFrame, targetTrackingEnabled ? targetId : -1,
+                                    targetTrackingEnabled ? &trackedSize : nullptr);
+        }
+        // Draw detection and tracking results
+        ai->showResults(rawFrame, targetTrackingEnabled ? targetId : -1);
         // Auto-zoom: lock to bbox size captured at selection time
         if ((targetTrackingEnabled) && (trackedSize > 0.0f) && (autoZoom)) {
             zoomTracking(trackedSize);

@@ -13,6 +13,7 @@ public:
     AI(const char *model_path);
     ~AI();
     cv::Point process(cv::Mat &frame, int target_id = -1, float *trackedSize = nullptr);
+    void showResults(cv::Mat &frame, int target_id);
     // Returns the track_id of the tracked object whose bounding box contains
     // the point (x, y), or -1 if no match is found.
     int getTargetIdAt(int x, int y) const;
@@ -22,6 +23,7 @@ private:
     image_buffer_t dst_img;
     object_detect_result_list od_results;
     BYTETracker tracker;
+    std::vector<STrack> output_stracks;
     std::vector<STrack> lastTracks; // cached result of the last tracker update
     mutable std::mutex tracksMutex; // protects lastTracks (written by capture thread, read by command thread)
 };

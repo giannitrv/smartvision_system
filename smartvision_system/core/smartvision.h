@@ -48,6 +48,7 @@ private:
         float tiltKi;
         float tiltKd;
     } s_Parameters_t;
+    static const uint8_t INFERENCE_RATE;
     void loadConfig(const std::string &configPath, s_Parameters_t *parameters);
     cv::Mat process(cv::Mat &frame);
     void zoomTracking(float currSize);
