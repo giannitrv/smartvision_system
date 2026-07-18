@@ -3,17 +3,18 @@
 #include "yolov8.h"
 #include <string.h>
 
-AI::AI(const char *model_path) {
+AI::AI(const char *modelPath, const std::vector<int> &selectedClasses) {
     int ret;
     memset(&rknn_app_ctx, 0, sizeof(rknn_app_context_t));
     memset(&src_image, 0, sizeof(image_buffer_t));
     memset(&dst_img, 0, sizeof(image_buffer_t));
 
     init_post_process();
-
-    ret = init_yolov8_model(model_path, &rknn_app_ctx);
+    this->selectedClasses.clear();
+    this->selectedClasses.insert(selectedClasses.begin(), selectedClasses.end());
+    ret = init_yolov8_model(modelPath, &rknn_app_ctx);
     if (ret != 0) {
-        printf("init_yolov8_model fail! ret=%d model_path=%s\n", ret, model_path);
+        printf("init_yolov8_model fail! ret=%d model_path=%s\n", ret, modelPath);
     }
     dst_img.width = rknn_app_ctx.model_width;
     dst_img.height = rknn_app_ctx.model_height;
@@ -99,14 +100,16 @@ cv::Point AI::process(cv::Mat &frame, int target_id, float *trackedSize) {
     // Draw and Track
     for (int i = 0; i < od_results.count; i++) {
         object_detect_result *det_result = &(od_results.results[i]);
-        Object obj;
-        obj.rect.x = det_result->box.left;
-        obj.rect.y = det_result->box.top;
-        obj.rect.width = det_result->box.right - det_result->box.left;
-        obj.rect.height = det_result->box.bottom - det_result->box.top;
-        obj.label = det_result->cls_id;
-        obj.prob = det_result->prop;
-        objects.push_back(obj);
+        if (selectedClasses.count(det_result->cls_id) > 0) {
+            Object obj;
+            obj.rect.x = det_result->box.left;
+            obj.rect.y = det_result->box.top;
+            obj.rect.width = det_result->box.right - det_result->box.left;
+            obj.rect.height = det_result->box.bottom - det_result->box.top;
+            obj.label = det_result->cls_id;
+            obj.prob = det_result->prop;
+            objects.push_back(obj);
+        }
     }
     output_stracks.clear();
     output_stracks = tracker.update(objects);

@@ -76,7 +76,7 @@ Broadcaster::Broadcaster() {
               << " | Directed Broadcast IP: " << broadcastIp << "\n";
 
     snprintf(message, sizeof(message), 
-             "{\"device\":\"multivision_system\",\"ip\":\"%s\",\"rtsp\":\"8554\",\"cmd\":5005}", 
+             "{\"device\":\"smartvision_system\",\"ip\":\"%s\",\"rtsp\":\"8554\",\"cmd\":5005}", 
              ip.c_str());
 
     socketFd = socket(AF_INET, SOCK_DGRAM, 0);

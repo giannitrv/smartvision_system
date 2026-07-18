@@ -29,5 +29,8 @@
     "osd_thickness": 1,
     "osd_scale": 1.0,
     "osd_pos_x": 10,
-    "osd_pos_y": 30
+    "osd_pos_y": 30,
+    "object_class": [
+        0
+    ]
 }

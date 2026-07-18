@@ -47,6 +47,7 @@ private:
         float tiltKp;
         float tiltKi;
         float tiltKd;
+        std::vector<int> objectClass;
     } s_Parameters_t;
     static const uint8_t INFERENCE_RATE;
     void loadConfig(const std::string &configPath, s_Parameters_t *parameters);

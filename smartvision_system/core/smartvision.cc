@@ -65,7 +65,7 @@ SmartVision::SmartVision(const std::string &configPath) {
         return;
     }
     // Init ai model
-    ai = new AI(parameters.modelPath.c_str());
+    ai = new AI(parameters.modelPath.c_str(), parameters.objectClass);
     // Init pan tilt
     panTilt = new PanTilt(parameters.i2cDevice.c_str(), parameters.i2cAddr);
     panTilt->update(defaultPanAngle, defaultTiltAngle);
@@ -220,6 +220,17 @@ void SmartVision::loadConfig(const std::string &configPath, s_Parameters_t *para
             if (j.contains("osd_color") && j["osd_color"].is_array() && j["osd_color"].size() == 3) {
                 textColor = cv::Scalar(j["osd_color"][0], j["osd_color"][1], j["osd_color"][2]);
             }
+            if (j.contains("object_class") && j["object_class"].is_array()) {
+                parameters->objectClass.clear();
+                for (auto &cls : j["object_class"]) {
+                    parameters->objectClass.push_back(cls.get<int>());
+                }
+            }
+            std::cout << "[SmartVision] Object classes: ";
+            for (auto &cls : parameters->objectClass) {
+                std::cout << cls << " ";
+            }
+            std::cout << "\n";
             std::cout << "[SmartVision] Loaded configuration from " << configPath << "\n";
         } catch (...) {
             std::cerr << "[SmartVision] Failed to parse " << configPath << ", using defaults\n";
