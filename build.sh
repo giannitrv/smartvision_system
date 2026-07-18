@@ -3,11 +3,11 @@ set -e
 
 # ==============================================================================
 # SmartVision Cross-Compilation Build Script
-# This script uses Docker to cross-compile the RTSP Server for Rockchip RK3576
+# This script uses Docker to cross-compile the SmartVision System for Rockchip RK3576
 # without polluting the host machine's environment.
 # ==============================================================================
 
-IMAGE_NAME="rtsp-cross-compiler"
+IMAGE_NAME="smartvision_cross_compiler"
 BUILD_DIR="build_aarch64"
 
 # 1. Ensure the Docker image exists. If not, build it.
