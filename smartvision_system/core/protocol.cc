@@ -13,16 +13,8 @@ void parseSetZoomCmd(const std::vector<uint8_t> &command, float *zoomFactor, flo
 }
 
 void parseSetGimbalCmd(const std::vector<uint8_t> &command, int *panAngle, int *tiltAngle, uint8_t *reset) {
-    if (command[1] == 43) {
-        *panAngle += 5;
-    } else if (command[1] == 45) {
-        *panAngle -= 5;
-    }
-    if (command[2] == 43) {
-        *tiltAngle += 5;
-    } else if (command[2] == 45) {
-        *tiltAngle -= 5;
-    }
+    *panAngle = command[1];
+    *tiltAngle = command[2];
     *reset = command[3];
 }
 
