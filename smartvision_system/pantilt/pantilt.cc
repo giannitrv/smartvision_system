@@ -9,6 +9,8 @@ PanTilt::PanTilt(const char* device, int address) {
     // Initialize servos and PID controllers
     panServo = new Servo(pca, 0);
     tiltServo = new Servo(pca, 1);
+    currentPanAngle = 0;
+    currentTiltAngle = 0;
     std::cout << "[PanTilt] PanTilt initialized" << std::endl;
 }
 

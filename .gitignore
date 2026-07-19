@@ -60,5 +60,7 @@ Thumbs.db
 smartvision_system/models/*.rknn
 smartvision_system/models/*.onnx
 smartvision_system/models/*.weights
-smartvision_system/models/*.bin
 smartvision_system/models/*.pb
+
+# Cppcheck reports
+cppcheck_reports/

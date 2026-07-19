@@ -26,7 +26,10 @@ RUN apt-get update && apt-get install -y \
     crossbuild-essential-arm64 \
     gcc-aarch64-linux-gnu \
     g++-aarch64-linux-gnu \
-    rsync
+    rsync \
+    cppcheck \
+    python3 \
+    python3-pygments
 
 # 4. Install target (arm64) libraries — same versions as on the Radxa board (Debian 12)
 RUN apt-get install -y \

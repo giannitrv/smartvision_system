@@ -10,13 +10,9 @@ set -e
 IMAGE_NAME="smartvision_cross_compiler"
 BUILD_DIR="build_aarch64"
 
-# 1. Ensure the Docker image exists. If not, build it.
-if [[ "$(docker images -q ${IMAGE_NAME} 2> /dev/null)" == "" ]]; then
-    echo "Docker image '${IMAGE_NAME}' not found. Building it now..."
-    docker build -t ${IMAGE_NAME} .
-else
-    echo "Using existing Docker image: ${IMAGE_NAME}"
-fi
+# 1. Build/update the Docker image (uses cache if no Dockerfile changes exist)
+echo "Ensuring Docker image '${IMAGE_NAME}' is built and up-to-date..."
+docker build -t ${IMAGE_NAME} .
 
 # 2. Re-create the isolated build directory
 mkdir -p ${BUILD_DIR}

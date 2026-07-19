@@ -29,7 +29,7 @@
 
 class PCA9685 {
     public:
-        PCA9685(const char* device, int address = 0x40);
+        PCA9685(const char* device, int address);
         ~PCA9685();
         void init();
         void setFrequency(float freq);

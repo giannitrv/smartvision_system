@@ -8,6 +8,9 @@ class PanTilt {
     public:
         PanTilt(const char* device, int address);
         ~PanTilt();
+        // Prevent copying by disabling the copy constructor and assignment operator
+        PanTilt(const PanTilt&) = delete;
+        PanTilt& operator=(const PanTilt&) = delete;
         void update(uint8_t panSetpoint, uint8_t tiltSetpoint);
         uint8_t getPanAngle() const;
         uint8_t getTiltAngle() const;
