@@ -49,7 +49,7 @@ CommandServer::~CommandServer() {
 }
 
 void CommandServer::run() {
-    if (socketFd < 0) return;
+    if (socketFd < 0 || running) return;
     running = true;
     serverThread   = std::thread(&CommandServer::serverLoop,   this);
     telemetryThread = std::thread(&CommandServer::telemetryLoop, this);
@@ -66,7 +66,7 @@ void CommandServer::stop() {
 }
 
 void CommandServer::serverLoop() {
-    char buffer[5];
+    char buffer[64];
     sockaddr_in addr;
     socklen_t addrLen = sizeof(addr);
 

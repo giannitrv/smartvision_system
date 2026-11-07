@@ -10,25 +10,30 @@
 
 class CommandServer {
 public:
-    CommandServer(SmartVision& vision);
-    ~CommandServer();
-    void run();
-    void stop();
+  CommandServer(SmartVision &vision);
+  ~CommandServer();
+
+  CommandServer(const CommandServer &) = delete;
+  CommandServer &operator=(const CommandServer &) = delete;
+
+  void run();
+  void stop();
+
 private:
-    static constexpr int TELEMETRY_INTERVAL_MS = 500;
+  static constexpr int TELEMETRY_INTERVAL_MS = 500;
 
-    void serverLoop();
-    void telemetryLoop();
+  void serverLoop();
+  void telemetryLoop();
 
-    SmartVision& smartvision;
-    std::thread serverThread;
-    std::thread telemetryThread;
-    std::atomic<bool> running{false};
-    int socketFd;
+  SmartVision &smartvision;
+  std::thread serverThread;
+  std::thread telemetryThread;
+  std::atomic<bool> running{false};
+  int socketFd{-1};
 
-    sockaddr_in clientAddr;
-    bool clientAddrValid{false};
-    std::mutex clientAddrMutex;
+  sockaddr_in clientAddr;
+  bool clientAddrValid{false};
+  std::mutex clientAddrMutex;
 };
 
 #endif // COMMAND_SERVER_H

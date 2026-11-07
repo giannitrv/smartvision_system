@@ -1,33 +1,40 @@
 #include "protocol.h"
 
-void parseSetZoomCmd(const std::vector<uint8_t> &command, float *zoomFactor, float maxZoomFactor) {
-    float desiredZoom;
-
-    desiredZoom = command[1] + command[2] / 10.0f;
-    if (desiredZoom < 1.0f) {
-        desiredZoom = 1.0f;
-    } else if (desiredZoom > maxZoomFactor) {
-        desiredZoom = maxZoomFactor;
-    }
-    *zoomFactor = desiredZoom;
+void parseSetZoomCmd(const std::vector<uint8_t> &command, float *zoomFactor,
+                     float maxZoomFactor) {
+  float desiredZoom = command[1] + command[2] / 10.0f;
+  if (desiredZoom < 1.0f) {
+    desiredZoom = 1.0f;
+  } else if (desiredZoom > maxZoomFactor) {
+    desiredZoom = maxZoomFactor;
+  }
+  *zoomFactor = desiredZoom;
 }
 
-void parseSetGimbalCmd(const std::vector<uint8_t> &command, int *panAngle, int *tiltAngle, uint8_t *reset) {
-    *panAngle = command[1];
-    *tiltAngle = command[2];
-    *reset = command[3];
+void parseSetGimbalCmd(const std::vector<uint8_t> &command, int *panAngle,
+                       int *tiltAngle, uint8_t *reset) {
+  *panAngle = command[1];
+  *tiltAngle = command[2];
+  *reset = command[3];
 }
 
-void parseCameraControlCmd(const std::vector<uint8_t> &command, uint8_t *cameraControl, bool *enableOsd) {
-    *cameraControl = command[1];
-    *enableOsd = (command[2] > 0);
+void parseCameraControlCmd(const std::vector<uint8_t> &command,
+                           uint8_t *cameraControl, bool *enableOsd) {
+  *cameraControl = command[1];
+  *enableOsd = (command[2] > 0);
 }
 
-void parseTargetTrackingCmd(const std::vector<uint8_t> &command, int *targetX, int *targetY) {
-    *targetX = command[1];
-    *targetY = command[2];
+void parseTargetTrackingCmd(const std::vector<uint8_t> &command, int *targetX,
+                            int *targetY) {
+  *targetX = command[1];
+  *targetY = command[2];
 }
 
 void parseTrackingModeCmd(const std::vector<uint8_t> &command, bool *autoZoom) {
-    *autoZoom = (command[1] > 0);
+  *autoZoom = (command[1] > 0);
+}
+
+void parseGimbalModeCmd(const std::vector<uint8_t> &command,
+                        PanTiltNodeState *gimbalMode) {
+  *gimbalMode = (PanTiltNodeState)command[1];
 }

@@ -1,20 +1,30 @@
-#include <gst/gst.h>
+#ifndef VIDEORECORDER_H
+#define VIDEORECORDER_H
+
+#include "opencv2/opencv.hpp"
 #include <atomic>
+#include <gst/gst.h>
 #include <mutex>
 #include <string>
-#include "opencv2/opencv.hpp"
 
 class VideoRecorder {
 public:
-    VideoRecorder(void);
-    ~VideoRecorder(void);
-    void startRecording(int width, int height, int fps);
-    void stopRecording(void);
-    bool isRecording(void);
-    void pushFrame(cv::Mat &frame, int fps);
+  VideoRecorder(void);
+  ~VideoRecorder(void);
+
+  VideoRecorder(const VideoRecorder &) = delete;
+  VideoRecorder &operator=(const VideoRecorder &) = delete;
+
+  void startRecording(int width, int height, int fps);
+  void stopRecording(void);
+  bool isRecording(void);
+  void pushFrame(cv::Mat &frame, int fps);
+
 private:
-    bool recording;
-    GstElement *recordPipeline{nullptr};
-    GstElement *recordAppsrc{nullptr};
-    std::mutex recordMutex;
+  std::atomic<bool> recording{false};
+  GstElement *recordPipeline{nullptr};
+  GstElement *recordAppsrc{nullptr};
+  std::mutex recordMutex;
 };
+
+#endif // VIDEORECORDER_H

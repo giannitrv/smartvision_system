@@ -5,21 +5,24 @@
 #include "PCA9685.h"
 
 class PanTilt {
-    public:
-        PanTilt(const char* device, int address);
-        ~PanTilt();
-        // Prevent copying by disabling the copy constructor and assignment operator
-        PanTilt(const PanTilt&) = delete;
-        PanTilt& operator=(const PanTilt&) = delete;
-        void update(uint8_t panSetpoint, uint8_t tiltSetpoint);
-        uint8_t getPanAngle() const;
-        uint8_t getTiltAngle() const;
-    private:
-        PCA9685* pca;
-        Servo* panServo;
-        Servo* tiltServo;
-        uint8_t currentPanAngle;
-        uint8_t currentTiltAngle;
+public:
+  PanTilt(const char *device, int address);
+  ~PanTilt() = default;
+
+  // Prevent copying by disabling the copy constructor and assignment operator
+  PanTilt(const PanTilt &) = delete;
+  PanTilt &operator=(const PanTilt &) = delete;
+
+  void update(uint8_t panSetpoint, uint8_t tiltSetpoint);
+  uint8_t getPanAngle() const;
+  uint8_t getTiltAngle() const;
+
+private:
+  PCA9685 pca;
+  Servo panServo;
+  Servo tiltServo;
+  uint8_t currentPanAngle{0};
+  uint8_t currentTiltAngle{0};
 };
 
 #endif // PANTILT_H

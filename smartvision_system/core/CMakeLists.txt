@@ -29,6 +29,7 @@ target_link_libraries(smartvision PRIVATE
     imagedrawing
     imageutils
     pantilt
+    peripherals
     ${GST_LIBRARIES}
     ${GST_RTSP_SERVER_LIBRARIES}
     ${GST_APP_LIBRARIES}
