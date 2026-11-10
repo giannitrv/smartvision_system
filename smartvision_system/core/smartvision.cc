@@ -50,7 +50,7 @@ SmartVision::SmartVision(const std::string &configPath) {
   textSize = 1;
   refTargetSize = -1.0f;
   isManualGimbalMove = false;
-  gimbalNode.desiredState = PanTiltNodeState::IDLE;
+  gimbalNode.desiredState = PanTiltNodeState::MOVING;
   lastTrackTime = std::chrono::duration_cast<std::chrono::milliseconds>(
       std::chrono::high_resolution_clock::now().time_since_epoch());
   this->panAngle = defaultPanAngle;
@@ -305,11 +305,12 @@ cv::Mat SmartVision::process(cv::Mat &frame) {
 
   if (osdEnabled) {
     snprintf(text, sizeof(text),
-             "Zoom: %.1f Pan: %d Tilt: %d FPS: %d Date: %02d/%02d/%d Time: "
+             "Zoom: %.1f Pan: %d Tilt: %d FPS: %d Tracking: %s Date: %02d/%02d/%d Time: "
              "%02d:%02d:%02d",
-             zoomFactor, actualPanAngle, actualTiltAngle, currentFps, ltm->tm_mday,
-             ltm->tm_mon + 1, ltm->tm_year + 1900, ltm->tm_hour, ltm->tm_min,
-             ltm->tm_sec);
+             zoomFactor, actualPanAngle, actualTiltAngle, currentFps,
+             targetTrackingEnabled ? "ON" : "OFF",
+             ltm->tm_mday, ltm->tm_mon + 1, ltm->tm_year + 1900,
+             ltm->tm_hour, ltm->tm_min, ltm->tm_sec);
     cv::putText(frame, text, cv::Point(osdPosX, osdPosY), textFont, osdScale,
                 textColor, textThickness);
     if (useRemoteControl) {
@@ -432,7 +433,7 @@ void SmartVision::trackingLoop(void) {
     {
       std::lock_guard<std::mutex> lock(trackingMutex);
       center = targetCenter;
-      tracking = targetTrackingEnabled;
+      tracking = targetTrackingEnabled && !isManualGimbalMove;
     }
     if (tracking && center.x != -1) {
       errX = center.x - (width / 2);
@@ -463,7 +464,7 @@ void SmartVision::trackingLoop(void) {
       // tracking)
       panTilt->update(panAngle, tiltAngle);
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    std::this_thread::sleep_for(std::chrono::milliseconds(30));
   }
 }
 

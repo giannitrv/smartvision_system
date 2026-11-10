@@ -90,7 +90,7 @@ bool CanBus::Send(uint16_t canId, const std::array<uint8_t, 8> &payload) {
               << std::dec << ": " << std::strerror(errno) << '\n';
     return false;
   }
-  std::cout << "[CAN BUS] Write success seq_num: " << static_cast<uint16_t>(payload[0]) << std::endl;
+
   return true;
 }
 

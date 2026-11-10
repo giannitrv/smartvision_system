@@ -20,7 +20,7 @@ public:
   void stop();
 
 private:
-  static constexpr int TELEMETRY_INTERVAL_MS = 500;
+  static constexpr int TELEMETRY_INTERVAL_MS = 25;
 
   void serverLoop();
   void telemetryLoop();

@@ -154,6 +154,6 @@ void PanTiltNode::txLoop() {
     std::array<uint8_t, 8> payload = cmd.toPayload();
     canBus->Send(cmdCanId, payload);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(25)); // 40 Hz
+    std::this_thread::sleep_for(std::chrono::milliseconds(20)); // 50 Hz
   }
 }
